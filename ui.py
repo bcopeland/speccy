@@ -14,7 +14,7 @@ def gen_pallete():
     # create a 256-color gradient from blue->green->white
     start_col = (0.1, 0.1, 1.0)
     mid_col = (0.1, 1.0, 0.1)
-    end_col = (1.0, 1.0, 1.0)
+    end_col = (1.0, 0.1, 0.1)
 
     colors = [0] * 256
     for i in range(0, 256):
@@ -34,8 +34,11 @@ def gen_pallete():
 
 
 lastframe = 0
+redraws = 0
+sf = spectrum_file.open(fn)
+
 def update_data(w, frame_clock, fn):
-    global max_per_freq, heatmap, lastframe
+    global max_per_freq, heatmap, lastframe, redraws
 
     time = frame_clock.get_frame_time()
     if time - lastframe > 1000:
@@ -43,15 +46,18 @@ def update_data(w, frame_clock, fn):
     else:
         return True
 
-    hmp = heatmap
-    try:
-        xydata = spectrum_file.read(open(fn))
-    except:
-        xydata = []
+    xydata = sf.read()
     if not xydata:
         return True
 
-    for x, y in xydata:
+    redraws += 1
+    if redraws > 10:
+        redraws = 0
+        heatmap = {}
+
+    hmp = heatmap
+
+    for tsf, x, y in xydata:
         modx = x
         arr = hmp.setdefault(modx, {})
         mody = int((y / -150.0) * scale)
@@ -59,7 +65,7 @@ def update_data(w, frame_clock, fn):
         arr[mody] += 1.0
 
     mpf = max_per_freq
-    for x, y in xydata:
+    for tsf, x, y in xydata:
         cury = max_per_freq.setdefault(x, y)
         if cury < y:
             mpf[x] = y

@@ -3,38 +3,55 @@ import struct
 import sys
 import math
 
-def read(f):
-    data = f.read()
+def open(path):
+    return SpectrumFile(path)
 
-    vals = []
-    pos = 0
-    while pos < len(data):
-        (stype, slen) = struct.unpack_from(">BH", data, pos)
-        if stype != 1:
-            print "Unknown sample type %d" % stype
-            sys.exit(1)
+class SpectrumFile(object):
 
-        pos += 3
+    def __init__(self, path):
+        self.fp = file(path)
+        self.buf = ""
 
-        (max_exp, freq, rssi, noise, max_mag, max_index, hweight, tsf) = \
-            struct.unpack_from(">BHbbHBBQ", data, pos)
-        pos += 17
+    def read(self):
+        """
+        Return all of the available samples, as a set of (tsf, freq, signal)
+        pairs.  For partial reads, samples are buffered until available.
+        """
+        if not self.fp:
+            raise ValueError, 'No open file'
 
-        sdata = struct.unpack_from("56B", data, pos)
-        pos += 56
+        data = self.buf + self.fp.read()
 
-        sumsq_sample = sum([math.pow(float(x), 2) for x in sdata])
-        for i, sample in enumerate(sdata):
-            f = freq - (22.0 * 56 / 64.0) / 2 + (22.0 * (i + 0.5)/64.0)
-            if sample == 0:
-                sample = 1
+        vals = []
+        pos = 0
 
-            signal = noise + rssi + \
-                     20 * math.log10(sample) - 10 * math.log10(sumsq_sample)
+        pktsize = 3 + 17 + 56
+        while pos < len(data) - pktsize + 1:
 
-            print "TSF: %d Freq: %d Noise: %d Rssi: %d Signal: %f" % (
-                   tsf, f, noise, rssi, signal)
+            (stype, slen) = struct.unpack_from(">BH", data, pos)
+            if stype != 1:
+                print "Unknown sample type %d" % stype
+                break
 
-            vals.append((f, signal))
+            pos += 3
 
-    return vals
+            (max_exp, freq, rssi, noise, max_mag, max_index, hweight, tsf) = \
+                struct.unpack_from(">BHbbHBBQ", data, pos)
+            pos += 17
+
+            sdata = struct.unpack_from("56B", data, pos)
+            pos += 56
+
+            sumsq_sample = sum([math.pow(float(x), 2) for x in sdata])
+            for i, sample in enumerate(sdata):
+                f = freq - (22.0 * 56 / 64.0) / 2 + (22.0 * (i + 0.5)/64.0)
+                if sample == 0:
+                    sample = 1
+
+                signal = noise + rssi + \
+                         20 * math.log10(sample) - 10 * math.log10(sumsq_sample)
+
+                vals.append((tsf, f, signal))
+
+        self.buf = data[pos:]
+        return vals
