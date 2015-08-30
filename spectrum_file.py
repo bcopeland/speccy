@@ -47,6 +47,8 @@ class SpectrumFile(object):
                 f = freq - (22.0 * 56 / 64.0) / 2 + (22.0 * (i + 0.5)/64.0)
                 if sample == 0:
                     sample = 1
+                if sumsq_sample == 0:
+                    sumsq_sample = 1
 
                 signal = noise + rssi + \
                          20 * math.log10(sample) - 10 * math.log10(sumsq_sample)
