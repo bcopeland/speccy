@@ -5,7 +5,7 @@ import sys
 from math import ceil
 
 wx=800
-wy=800
+wy=400
 heatmap = {}
 scale=300.0
 fn = sys.argv[1]
@@ -163,7 +163,7 @@ def draw(w, cr):
 
 color_map = gen_pallete()
 w = Gtk.Window()
-w.set_default_size(800, 800)
+w.set_default_size(wx, wy)
 a = Gtk.DrawingArea()
 w.add(a)
 
