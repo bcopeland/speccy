@@ -2,6 +2,7 @@
 from gi.repository import Gtk
 import spectrum_file
 import sys
+from math import ceil
 
 wx=800
 wy=800
@@ -9,6 +10,11 @@ heatmap = {}
 scale=300.0
 fn = sys.argv[1]
 max_per_freq = {}
+
+freq_min = 2400.0
+freq_max = 2480.0
+power_min = -110.0
+power_max = -20.0
 
 def gen_pallete():
     # create a 256-color gradient from blue->green->white
@@ -37,6 +43,46 @@ lastframe = 0
 redraws = 0
 sf = spectrum_file.open(fn)
 
+def sample_to_viewport(freq, power):
+
+    # normalize both frequency and power to [0,1] interval, and
+    # then scale by window size
+    freq_normalized = (freq - freq_min) / (freq_max - freq_min)
+    freq_scaled = freq_normalized * wx
+
+    power_normalized = (power - power_min) / (power_max - power_min)
+    power_scaled = power_normalized * wy
+
+    # flip origin to bottom left for y-axis
+    power_scaled = wy - power_scaled
+
+    return (freq_scaled, power_scaled)
+
+
+def draw_grid(cr):
+    # clear the viewport with a black rectangle
+    cr.rectangle(0, 0, wx, wy)
+    cr.set_source_rgb(0, 0, 0)
+    cr.fill()
+
+    cr.set_source_rgb(1, 1, 1)
+    cr.set_line_width(0.5)
+    cr.set_dash([2.0, 2.0])
+    for freq in range(int(freq_min), int(freq_max), 5):
+        sx, sy = sample_to_viewport(freq, power_min)
+        ex, ey = sample_to_viewport(freq, power_max)
+        cr.move_to(sx, sy)
+        cr.line_to(ex, ey)
+        cr.stroke()
+
+    for power in range(int(power_min), int(power_max), 10):
+        sx, sy = sample_to_viewport(freq_min, power)
+        ex, ey = sample_to_viewport(freq_max, power)
+        cr.move_to(sx, sy)
+        cr.line_to(ex, ey)
+        cr.stroke()
+    cr.set_dash([])
+
 def update_data(w, frame_clock, fn):
     global max_per_freq, heatmap, lastframe, redraws
 
@@ -60,7 +106,7 @@ def update_data(w, frame_clock, fn):
     for tsf, x, y in xydata:
         modx = x
         arr = hmp.setdefault(modx, {})
-        mody = int((y / -150.0) * scale)
+        mody = ceil(y*2.0)/2.0
         arr.setdefault(mody, 0)
         arr[mody] += 1.0
 
@@ -78,10 +124,7 @@ def update_data(w, frame_clock, fn):
 
 def draw(w, cr):
 
-    # clear the viewport with a black rectangle
-    cr.rectangle(0, 0, wx, wy)
-    cr.set_source_rgb(0, 0, 0)
-    cr.fill()
+    draw_grid(cr)
 
     print 'heatmap len %d' % len(heatmap)
 
@@ -100,8 +143,7 @@ def draw(w, cr):
     for x in heatmap.keys():
         for y, value in heatmap[x].iteritems():
             # scale x to viewport
-            posx = (x - 2400.0) / (2480.0-2400.0) * wx
-            posy = y / scale * wy
+            posx, posy = sample_to_viewport(x, y)
 
             color = color_map[int(len(color_map) * value / zmax) & 0xff]
             cr.rectangle(posx-rect_size[0]/2, posy-rect_size[1]/2, rect_size[0], rect_size[1])
