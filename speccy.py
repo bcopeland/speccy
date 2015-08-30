@@ -137,8 +137,6 @@ def draw(w, cr):
     wx, wy = (w.get_window().get_width(), w.get_window().get_height())
     draw_grid(cr, wx, wy)
 
-    print 'heatmap len %d' % len(heatmap)
-
     # samples
     rect_size = cr.device_to_user_distance(3, 3)
 
