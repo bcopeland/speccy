@@ -51,7 +51,7 @@ def update_data(w, frame_clock, fn):
         return True
 
     redraws += 1
-    if redraws > 10:
+    if redraws > 5:
         redraws = 0
         heatmap = {}
 
