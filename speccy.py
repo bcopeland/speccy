@@ -156,6 +156,10 @@ def draw(w, cr):
             # scale x to viewport
             posx, posy = sample_to_viewport(x, y, wx, wy)
 
+            # don't bother drawing partially off-screen pixels
+            if posx < 0 or posx > wx or posy < 0 or posy > wy:
+                continue
+
             color = color_map[int(len(color_map) * value / zmax) & 0xff]
             cr.rectangle(posx-rect_size[0]/2, posy-rect_size[1]/2, rect_size[0], rect_size[1])
             cr.set_source_rgba(color[0], color[1], color[2], .8)
