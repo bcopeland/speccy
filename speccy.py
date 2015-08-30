@@ -4,8 +4,7 @@ import spectrum_file
 import sys
 from math import ceil
 
-wx=800
-wy=400
+window = None
 heatmap = {}
 scale=300.0
 fn = sys.argv[1]
@@ -43,7 +42,7 @@ lastframe = 0
 redraws = 0
 sf = spectrum_file.open(fn)
 
-def sample_to_viewport(freq, power):
+def sample_to_viewport(freq, power, wx, wy):
 
     # normalize both frequency and power to [0,1] interval, and
     # then scale by window size
@@ -63,7 +62,7 @@ def draw_centered_text(cr, text, x, y):
     cr.move_to(x - width / 2 - x_bearing, y - height / 2 - y_bearing)
     cr.show_text(text)
 
-def draw_grid(cr):
+def draw_grid(cr, wx, wy):
     # clear the viewport with a black rectangle
     cr.rectangle(0, 0, wx, wy)
     cr.set_source_rgb(0, 0, 0)
@@ -73,8 +72,8 @@ def draw_grid(cr):
     cr.set_line_width(0.5)
     cr.set_dash([2.0, 2.0])
     for freq in range(int(freq_min), int(freq_max), 5):
-        sx, sy = sample_to_viewport(freq, power_min)
-        ex, ey = sample_to_viewport(freq, power_max)
+        sx, sy = sample_to_viewport(freq, power_min, wx, wy)
+        ex, ey = sample_to_viewport(freq, power_max, wx, wy)
         cr.move_to(sx, sy)
         cr.line_to(ex, ey)
         cr.stroke()
@@ -83,8 +82,8 @@ def draw_grid(cr):
             draw_centered_text(cr, "%d" % freq, ex, ey + 30)
 
     for power in range(int(power_min), int(power_max), 10):
-        sx, sy = sample_to_viewport(freq_min, power)
-        ex, ey = sample_to_viewport(freq_max, power)
+        sx, sy = sample_to_viewport(freq_min, power, wx, wy)
+        ex, ey = sample_to_viewport(freq_max, power, wx, wy)
         cr.move_to(sx, sy)
         cr.line_to(ex, ey)
         cr.stroke()
@@ -135,7 +134,8 @@ def update_data(w, frame_clock, fn):
 
 def draw(w, cr):
 
-    draw_grid(cr)
+    wx, wy = (w.get_window().get_width(), w.get_window().get_height())
+    draw_grid(cr, wx, wy)
 
     print 'heatmap len %d' % len(heatmap)
 
@@ -154,7 +154,7 @@ def draw(w, cr):
     for x in heatmap.keys():
         for y, value in heatmap[x].iteritems():
             # scale x to viewport
-            posx, posy = sample_to_viewport(x, y)
+            posx, posy = sample_to_viewport(x, y, wx, wy)
 
             color = color_map[int(len(color_map) * value / zmax) & 0xff]
             cr.rectangle(posx-rect_size[0]/2, posy-rect_size[1]/2, rect_size[0], rect_size[1])
@@ -163,7 +163,7 @@ def draw(w, cr):
 
 color_map = gen_pallete()
 w = Gtk.Window()
-w.set_default_size(wx, wy)
+w.set_default_size(800, 400)
 a = Gtk.DrawingArea()
 w.add(a)
 
