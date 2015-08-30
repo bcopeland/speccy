@@ -11,8 +11,8 @@ scale=300.0
 fn = sys.argv[1]
 max_per_freq = {}
 
-freq_min = 2400.0
-freq_max = 2480.0
+freq_min = 2402.0
+freq_max = 2472.0
 power_min = -110.0
 power_max = -20.0
 
@@ -58,6 +58,10 @@ def sample_to_viewport(freq, power):
 
     return (freq_scaled, power_scaled)
 
+def draw_centered_text(cr, text, x, y):
+    x_bearing, y_bearing, width, height = cr.text_extents(text)[:4]
+    cr.move_to(x - width / 2 - x_bearing, y - height / 2 - y_bearing)
+    cr.show_text(text)
 
 def draw_grid(cr):
     # clear the viewport with a black rectangle
@@ -75,12 +79,19 @@ def draw_grid(cr):
         cr.line_to(ex, ey)
         cr.stroke()
 
+        if freq != freq_min and freq != freq_max:
+            draw_centered_text(cr, "%d" % freq, ex, ey + 30)
+
     for power in range(int(power_min), int(power_max), 10):
         sx, sy = sample_to_viewport(freq_min, power)
         ex, ey = sample_to_viewport(freq_max, power)
         cr.move_to(sx, sy)
         cr.line_to(ex, ey)
         cr.stroke()
+
+        if power != power_min and power != power_max:
+            draw_centered_text(cr, "%d dBm" % power, sx + 30, ey)
+
     cr.set_dash([])
 
 def update_data(w, frame_clock, fn):
