@@ -140,7 +140,7 @@ def draw(w, cr):
     print 'heatmap len %d' % len(heatmap)
 
     # samples
-    rect_size = cr.device_to_user_distance(5, 5)
+    rect_size = cr.device_to_user_distance(3, 3)
 
     zmax = 0
     for x in heatmap.keys():
