@@ -4,9 +4,7 @@ import spectrum_file
 import sys
 from math import ceil
 
-window = None
 heatmap = {}
-scale=300.0
 fn = sys.argv[1]
 max_per_freq = {}
 
@@ -149,19 +147,30 @@ def draw(w, cr):
     if not zmax:
         zmax = 1
 
-    for x in heatmap.keys():
-        for y, value in heatmap[x].iteritems():
-            # scale x to viewport
-            posx, posy = sample_to_viewport(x, y, wx, wy)
+    envelope = False
+    if not envelope:
+        for x in heatmap.keys():
+            for y, value in heatmap[x].iteritems():
+                # scale x to viewport
+                posx, posy = sample_to_viewport(x, y, wx, wy)
 
-            # don't bother drawing partially off-screen pixels
-            if posx < 0 or posx > wx or posy < 0 or posy > wy:
-                continue
+                # don't bother drawing partially off-screen pixels
+                if posx < 0 or posx > wx or posy < 0 or posy > wy:
+                    continue
 
-            color = color_map[int(len(color_map) * value / zmax) & 0xff]
-            cr.rectangle(posx-rect_size[0]/2, posy-rect_size[1]/2, rect_size[0], rect_size[1])
-            cr.set_source_rgba(color[0], color[1], color[2], .8)
-            cr.fill()
+                color = color_map[int(len(color_map) * value / zmax) & 0xff]
+                cr.rectangle(posx-rect_size[0]/2, posy-rect_size[1]/2, rect_size[0], rect_size[1])
+                cr.set_source_rgba(color[0], color[1], color[2], .8)
+                cr.fill()
+    else:
+        freqs = sorted(max_per_freq.keys())
+        x, y = sample_to_viewport(freqs[0], max_per_freq[freqs[0]], wx, wy)
+        cr.set_source_rgb(1, 1, 0)
+        cr.move_to(x, y)
+        for freq in freqs[1:]:
+            x, y = sample_to_viewport(freq, max_per_freq[freq], wx, wy)
+            cr.line_to(x, y)
+        cr.stroke()
 
 color_map = gen_pallete()
 w = Gtk.Window()
