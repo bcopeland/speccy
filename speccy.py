@@ -1,8 +1,10 @@
 #!/usr/bin/python
-from gi.repository import Gtk
+from gi.repository import Gtk, Gdk
 import spectrum_file
+import signal
 import sys
 from math import ceil
+import math
 
 heatmap = {}
 fn = sys.argv[1]
@@ -10,10 +12,30 @@ max_per_freq = {}
 
 freq_min = 2402.0
 freq_max = 2472.0
+
 power_min = -110.0
 power_max = -20.0
 last_x = freq_max
 mpf_gen = 0
+mpf_gen_tbl = {}
+hmp_gen = 0
+hmp_gen_tbl = {}
+show_envelope = True
+show_heatmap = True
+
+def quit():
+    Gtk.main_quit()
+
+def on_key_press(w, event):
+    global show_envelope, show_heatmap
+
+    key = Gdk.keyval_name(event.keyval)
+    if key == 's':
+        show_heatmap = not show_heatmap
+    elif key == 'l':
+        show_envelope = not show_envelope
+    elif key == 'q':
+        quit()
 
 def gen_pallete():
     # create a 256-color gradient from blue->green->white
@@ -93,8 +115,16 @@ def draw_grid(cr, wx, wy):
 
     cr.set_dash([])
 
-def update_data(w, frame_clock, fn):
-    global max_per_freq, heatmap, lastframe, redraws, last_x, mpf_gen
+def smooth_data(vals, window_len):
+    smoothed = [power_min] * len(vals)
+    half_window = window_len / 2
+    for i in range(half_window, len(vals) - half_window):
+        window = vals[i - half_window:i+half_window]
+        smoothed[i] = sum(window) / float(len(window))
+    return smoothed
+
+def update_data(w, frame_clock, user_data):
+    global max_per_freq, heatmap, lastframe, redraws, last_x, mpf_gen, mpf_gen_tbl, hmp_gen_tbl, hmp_gen
 
     time = frame_clock.get_frame_time()
     if time - lastframe > 1000:
@@ -106,37 +136,41 @@ def update_data(w, frame_clock, fn):
     if not xydata:
         return True
 
-    # clear if wrapped around or processed too much data
-    if xydata[0][1] < last_x:
-        redraws = 100
-
-    redraws += 1
-    if redraws > 15:
-        redraws = 0
-        heatmap = {}
-        mpf_gen += 1
-
     hmp = heatmap
     mpf = max_per_freq
 
-    for tsf, x, y in xydata:
-        modx = x
-        arr = hmp.setdefault(modx, {})
-        mody = ceil(y*2.0)/2.0
-        arr.setdefault(mody, 0)
-        arr[mody] += 1.0
+    for tsf, freq, noise, rssi, sdata in xydata:
+        if freq < last_x:
+            # we wrapped the scan...
+            hmp_gen += 1
+            mpf_gen += 1
 
-        cury, old_gen, n = \
-                max_per_freq.setdefault(x, (y, mpf_gen, 0))
+        sumsq_sample = sum([x*x for x in sdata])
+        for i, sample in enumerate(sdata):
+            f = freq - (22.0 * 56 / 64.0) / 2 + (22.0 * (i + 0.5)/64.0)
+            if sample == 0:
+                sample = 1
+            if sumsq_sample == 0:
+                sumsq_sample = 1
 
-        if cury < y or old_gen < mpf_gen:
-            if old_gen < mpf_gen:
-                n = 0
-            # average all 8 samples
-            y = (cury * n + y) / (n+1)
-            max_per_freq[x] = (y, mpf_gen, n+1)
+            signal = noise + rssi + \
+                20 * math.log10(sample) - 10 * math.log10(sumsq_sample)
 
-    last_x = xydata[0][1]
+            if f not in hmp or hmp_gen_tbl.get(f, 0) < hmp_gen:
+                hmp[f] = {}
+                hmp_gen_tbl[f] = hmp_gen
+
+            arr = hmp[f]
+            mody = ceil(signal*2.0)/2.0
+            arr.setdefault(mody, 0)
+            arr[mody] += 1.0
+
+            mpf.setdefault(f, 0)
+            if signal > mpf[f] or mpf_gen_tbl.get(f, 0) < mpf_gen:
+                mpf[f] = signal
+                mpf_gen_tbl[f] = mpf_gen
+
+        last_x = freq
 
 
     heatmap = hmp
@@ -162,9 +196,6 @@ def draw(w, cr):
     if not zmax:
         zmax = 1
 
-    show_envelope = False
-    show_heatmap = True
-
     if show_heatmap:
         for x in heatmap.keys():
             for y, value in heatmap[x].iteritems():
@@ -179,27 +210,38 @@ def draw(w, cr):
                 cr.rectangle(posx-rect_size[0]/2, posy-rect_size[1]/2, rect_size[0], rect_size[1])
                 cr.set_source_rgba(color[0], color[1], color[2], .8)
                 cr.fill()
+
     if show_envelope:
         freqs = sorted(max_per_freq.keys())
-        x, y = sample_to_viewport(freqs[0], (max_per_freq[freqs[0]])[0], wx, wy)
+        pow_data = [max_per_freq[f] for f in freqs]
+        pow_data = smooth_data(pow_data, 4)
+
+        x, y = sample_to_viewport(freqs[0], pow_data[0], wx, wy)
         cr.set_source_rgb(1, 1, 0)
         cr.move_to(x, y)
-        for freq in freqs[1:]:
-            x, y = sample_to_viewport(freq, (max_per_freq[freq])[0], wx, wy)
+        for i, freq in enumerate(freqs[1:]):
+            x, y = sample_to_viewport(freq, pow_data[i], wx, wy)
             cr.line_to(x, y)
         cr.stroke()
 
-color_map = gen_pallete()
-w = Gtk.Window()
-w.set_default_size(800, 400)
-a = Gtk.DrawingArea()
-w.add(a)
 
-a.add_tick_callback(update_data, sys.argv[1])
+def main():
+    global color_map
+    color_map = gen_pallete()
+    w = Gtk.Window()
+    w.set_default_size(800, 400)
+    a = Gtk.DrawingArea()
+    w.add(a)
 
-w.connect('destroy', Gtk.main_quit)
-a.connect('draw', draw)
+    a.add_tick_callback(update_data, None)
 
-w.show_all()
+    w.connect('destroy', Gtk.main_quit)
+    w.connect("key_press_event", on_key_press)
+    a.connect('draw', draw)
 
-Gtk.main()
+    w.show_all()
+    Gtk.main()
+
+if __name__ == '__main__':
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
+    main()

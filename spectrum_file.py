@@ -41,19 +41,7 @@ class SpectrumFile(object):
 
             sdata = struct.unpack_from("56B", data, pos)
             pos += 56
-
-            sumsq_sample = sum([math.pow(float(x), 2) for x in sdata])
-            for i, sample in enumerate(sdata):
-                f = freq - (22.0 * 56 / 64.0) / 2 + (22.0 * (i + 0.5)/64.0)
-                if sample == 0:
-                    sample = 1
-                if sumsq_sample == 0:
-                    sumsq_sample = 1
-
-                signal = noise + rssi + \
-                         20 * math.log10(sample) - 10 * math.log10(sumsq_sample)
-
-                vals.append((tsf, f, signal))
+            vals.append((tsf, freq, noise, rssi, sdata))
 
         self.buf = data[pos:]
         return vals
