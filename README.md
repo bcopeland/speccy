@@ -7,7 +7,7 @@ in something resembling real-time.
 
 ![UI](http://bobcopeland.com/images/lj/speccy-anim.gif)
 
-## Prerequisives
+## Prerequisites
 
  * a device that supports the spectral scan feature (ath9k and ath9k\_htc
    drivers tested at this point)
