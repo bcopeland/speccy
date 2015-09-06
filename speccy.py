@@ -36,9 +36,11 @@ class Speccy(object):
         fn = '%s/spectral_scan0' % self.scanner.get_debugfs_dir()
         self.sf = spectrum_file.open(fn)
 
-    def quit(self):
-        self.scanner.stop()
+    def quit(self, *args):
         Gtk.main_quit()
+
+    def cleanup(self, *args):
+        self.scanner.stop()
 
     def on_key_press(self, w, event):
         key = Gdk.keyval_name(event.keyval)
@@ -233,6 +235,8 @@ class Speccy(object):
 
     def main(self):
 
+        signal.signal(signal.SIGINT, self.quit)
+
         w = Gtk.Window()
         w.set_default_size(800, 400)
         a = Gtk.DrawingArea()
@@ -250,6 +254,7 @@ class Speccy(object):
 
         Gtk.main()
 
+        self.cleanup()
+
 if __name__ == '__main__':
-    signal.signal(signal.SIGINT, signal.SIG_DFL)
     Speccy(sys.argv[1]).main()
