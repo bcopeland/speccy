@@ -5,9 +5,9 @@ import signal
 import sys
 from math import ceil
 import math
+from scanner import Scanner
 
 heatmap = {}
-fn = sys.argv[1]
 max_per_freq = {}
 
 freq_min = 2402.0
@@ -22,6 +22,11 @@ hmp_gen = 0
 hmp_gen_tbl = {}
 show_envelope = True
 show_heatmap = True
+lastframe = 0
+redraws = 0
+
+color_map = None
+sf = None
 
 def quit():
     Gtk.main_quit()
@@ -58,11 +63,6 @@ def gen_pallete():
                          mid_col[1] * sf + end_col[1] * sf2,
                          mid_col[2] * sf + end_col[2] * sf2)
     return colors
-
-
-lastframe = 0
-redraws = 0
-sf = spectrum_file.open(fn)
 
 def sample_to_viewport(freq, power, wx, wy):
 
@@ -124,7 +124,7 @@ def smooth_data(vals, window_len):
     return smoothed
 
 def update_data(w, frame_clock, user_data):
-    global max_per_freq, heatmap, lastframe, redraws, last_x, mpf_gen, mpf_gen_tbl, hmp_gen_tbl, hmp_gen
+    global max_per_freq, heatmap, lastframe, redraws, last_x, mpf_gen, mpf_gen_tbl, hmp_gen_tbl, hmp_gen, sf
 
     time = frame_clock.get_frame_time()
     if time - lastframe > 1000:
@@ -226,8 +226,16 @@ def draw(w, cr):
 
 
 def main():
-    global color_map
+    global color_map, sf
     color_map = gen_pallete()
+
+    iface = sys.argv[1]
+    scanner = Scanner(iface)
+    scanner.start()
+
+    fn = '%s/spectral_scan0' % scanner.get_debugfs_dir()
+    sf = spectrum_file.open(fn)
+
     w = Gtk.Window()
     w.set_default_size(800, 400)
     a = Gtk.DrawingArea()
