@@ -53,7 +53,7 @@ class Speccy(object):
         # create a 256-color gradient from blue->green->white
         start_col = (0.1, 0.1, 1.0)
         mid_col = (0.1, 1.0, 0.1)
-        end_col = (1.0, 0.1, 0.1)
+        end_col = (1.0, 1.0, 1.0)
 
         colors = [0] * 256
         for i in range(0, 256):
