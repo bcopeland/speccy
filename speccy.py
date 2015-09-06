@@ -161,7 +161,7 @@ class Speccy(object):
                 if sumsq_sample == 0:
                     sumsq_sample = 1
 
-                signal = noise + rssi + \
+                sigval = noise + rssi + \
                     20 * math.log10(sample) - 10 * math.log10(sumsq_sample)
 
                 if f not in hmp or self.hmp_gen_tbl.get(f, 0) < self.hmp_gen:
@@ -169,13 +169,13 @@ class Speccy(object):
                     self.hmp_gen_tbl[f] = self.hmp_gen
 
                 arr = hmp[f]
-                mody = ceil(signal*2.0)/2.0
+                mody = ceil(sigval*2.0)/2.0
                 arr.setdefault(mody, 0)
                 arr[mody] += 1.0
 
                 mpf.setdefault(f, 0)
-                if signal > mpf[f] or self.mpf_gen_tbl.get(f, 0) < self.mpf_gen:
-                    mpf[f] = signal
+                if sigval > mpf[f] or self.mpf_gen_tbl.get(f, 0) < self.mpf_gen:
+                    mpf[f] = sigval
                     self.mpf_gen_tbl[f] = self.mpf_gen
 
             self.last_x = freq
