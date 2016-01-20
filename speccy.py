@@ -39,9 +39,11 @@ class Speccy(object):
 
     def quit(self, *args):
         Gtk.main_quit()
-
-    def cleanup(self, *args):
+        self.cleanup()
+    
+    def cleanup(self):
         self.scanner.stop()
+        self.sf.flush()
 
     def on_key_press(self, w, event):
         key = Gdk.keyval_name(event.keyval)
@@ -70,7 +72,6 @@ class Speccy(object):
         #    self.scanner.cmd_trigger
         else:
             pass  # ignore unknown key
-
 
     def gen_pallete(self):
         # create a 256-color gradient from blue->green->white

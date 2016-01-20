@@ -10,6 +10,10 @@ class SpectrumFile(object):
         self.fp = file(path)
         self.buf = ""
 
+    def flush(self):
+        self.buf = ""
+        self.fp.read()
+
     def read(self):
         """
         Return all of the available samples, as a set of (tsf, freq, signal)

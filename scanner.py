@@ -119,6 +119,11 @@ class Scanner(object):
         f.write("chanscan")
         f.close()
 
+    def cmd_disable(self):
+        f = open(self.ctl_file, 'w')
+        f.write("disable")
+        f.close()
+
     def cmd_setchannel(self, ch):
         os.system("iw dev %s set channel %d" % (self.interface, ch))
 
@@ -127,6 +132,7 @@ class Scanner(object):
         self.process.start()
 
     def stop(self):
+        self.cmd_disable()
         self.process.terminate()
         self.process.join()
 
