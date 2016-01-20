@@ -6,9 +6,10 @@ import time
 class Scanner(object):
 
     interface = None
-    freqlist = None
+    freqlist = range(2412,2467,5)
     process = None
     debugfs_dir = None
+    is_ath10k = False
 
     def _find_debugfs_dir(self):
         ''' search debugfs for spectral_scan_ctl for this interface '''
@@ -22,11 +23,20 @@ class Scanner(object):
     def _start_collection(self):
         fn = '%s/spectral_scan_ctl' % self.debugfs_dir
         f = open(fn, 'w')
-        f.write("chanscan")
+        if self.is_ath10k:
+            f.write("background")
+        else:
+            f.write("chanscan")
         f.close()
 
     def _scan(self):
         while True:
+            if self.is_ath10k:
+                fn = '%s/spectral_scan_ctl' % self.debugfs_dir
+                f = open(fn, 'w')
+                f.write("trigger")
+                f.close()
+
             cmd = 'iw dev %s scan' % self.interface
             if self.freqlist:
                 cmd = '%s freq %s' % (cmd, ' '.join(self.freqlist))
@@ -37,6 +47,7 @@ class Scanner(object):
         self.interface = interface
         self.freqlist = freqlist
         self.debugfs_dir = self._find_debugfs_dir()
+        self.is_ath10k = self.debugfs_dir.endswith("ath10k")
         if not self.debugfs_dir:
             raise Exception, \
                   'Unable to access spectral_scan_ctl file for interface %s' % interface
