@@ -155,7 +155,7 @@ class Speccy(object):
 
             sumsq_sample = sum([x*x for x in sdata])
             for i, sample in enumerate(sdata):
-                f = freq - (22.0 * 56 / 64.0) / 2 + (22.0 * (i + 0.5)/64.0)
+                center_freq = freq - (22.0 * 56 / 64.0) / 2 + (22.0 * (i + 0.5)/64.0)
                 if sample == 0:
                     sample = 1
                 if sumsq_sample == 0:
@@ -164,28 +164,26 @@ class Speccy(object):
                 sigval = noise + rssi + \
                     20 * math.log10(sample) - 10 * math.log10(sumsq_sample)
 
-                if f not in hmp or self.hmp_gen_tbl.get(f, 0) < self.hmp_gen:
-                    hmp[f] = {}
-                    self.hmp_gen_tbl[f] = self.hmp_gen
+                if center_freq not in hmp or self.hmp_gen_tbl.get(center_freq, 0) < self.hmp_gen:
+                    hmp[center_freq] = {}
+                    self.hmp_gen_tbl[center_freq] = self.hmp_gen
 
-                arr = hmp[f]
+                arr = hmp[center_freq]
                 mody = ceil(sigval*2.0)/2.0
                 arr.setdefault(mody, 0)
                 arr[mody] += 1.0
 
-                mpf.setdefault(f, 0)
-                if sigval > mpf[f] or self.mpf_gen_tbl.get(f, 0) < self.mpf_gen:
-                    mpf[f] = sigval
-                    self.mpf_gen_tbl[f] = self.mpf_gen
+                mpf.setdefault(center_freq, 0)
+                if sigval > mpf[center_freq] or self.mpf_gen_tbl.get(center_freq, 0) < self.mpf_gen:
+                    mpf[center_freq] = sigval
+                    self.mpf_gen_tbl[center_freq] = self.mpf_gen
 
             self.last_x = freq
-
 
         self.heatmap = hmp
         self.max_per_freq = mpf
         w.queue_draw()
         return True
-
 
     def draw(self, w, cr):
 
@@ -196,19 +194,19 @@ class Speccy(object):
         rect_size = cr.device_to_user_distance(3, 3)
 
         zmax = 0
-        for x in self.heatmap.keys():
-            for y, value in self.heatmap[x].iteritems():
+        for center_freq in self.heatmap.keys():
+            for power, value in self.heatmap[center_freq].iteritems():
                 if zmax < value:
-                    zmax = self.heatmap[x][y]
+                    zmax = self.heatmap[center_freq][power]
 
         if not zmax:
             zmax = 1
 
         if self.show_heatmap:
-            for x in self.heatmap.keys():
-                for y, value in self.heatmap[x].iteritems():
+            for center_freq in self.heatmap.keys():
+                for power, value in self.heatmap[center_freq].iteritems():
                     # scale x to viewport
-                    posx, posy = self.sample_to_viewport(x, y, wx, wy)
+                    posx, posy = self.sample_to_viewport(center_freq, power, wx, wy)
 
                     # don't bother drawing partially off-screen pixels
                     if posx < 0 or posx > wx or posy < 0 or posy > wy:
@@ -231,7 +229,6 @@ class Speccy(object):
                 x, y = self.sample_to_viewport(freq, pow_data[i], wx, wy)
                 cr.line_to(x, y)
             cr.stroke()
-
 
     def main(self):
 
