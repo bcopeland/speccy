@@ -41,12 +41,12 @@ class Scanner(object):
         self.interface = interface
         self.freqlist = freqlist
         self.debugfs_dir = self._find_debugfs_dir()
-        self.is_ath10k = self.debugfs_dir.endswith("ath10k")
-        self.ctl_file = '%s/spectral_scan_ctl' % self.debugfs_dir
         if not self.debugfs_dir:
             raise Exception, \
                   'Unable to access spectral_scan_ctl file for interface %s' % interface
 
+        self.is_ath10k = self.debugfs_dir.endswith("ath10k")
+        self.ctl_file = '%s/spectral_scan_ctl' % self.debugfs_dir
         self.process = Process(target=self._scan, args=())
 
     def cmd_trigger(self):
