@@ -21,21 +21,15 @@ class Scanner(object):
         return None
 
     def _start_collection(self):
-        fn = '%s/spectral_scan_ctl' % self.debugfs_dir
-        f = open(fn, 'w')
         if self.is_ath10k:
-            f.write("background")
+            self.cmd_background()
         else:
-            f.write("chanscan")
-        f.close()
+            self.cmd_chanscan()
 
     def _scan(self):
         while True:
             if self.is_ath10k:
-                fn = '%s/spectral_scan_ctl' % self.debugfs_dir
-                f = open(fn, 'w')
-                f.write("trigger")
-                f.close()
+                self.cmd_trigger()
 
             cmd = 'iw dev %s scan' % self.interface
             if self.freqlist:
@@ -48,11 +42,32 @@ class Scanner(object):
         self.freqlist = freqlist
         self.debugfs_dir = self._find_debugfs_dir()
         self.is_ath10k = self.debugfs_dir.endswith("ath10k")
+        self.ctl_file = '%s/spectral_scan_ctl' % self.debugfs_dir
         if not self.debugfs_dir:
             raise Exception, \
                   'Unable to access spectral_scan_ctl file for interface %s' % interface
 
         self.process = Process(target=self._scan, args=())
+
+    def cmd_trigger(self):
+        f = open(self.ctl_file, 'w')
+        f.write("trigger")
+        f.close()
+
+    def cmd_background(self):
+        f = open(self.ctl_file, 'w')
+        f.write("background")
+        f.close()
+
+    """def cmd_manual(self):
+        f = open(self.ctl_file, 'w')
+        f.write("manual")
+        f.close()"""
+
+    def cmd_chanscan(self):
+        f = open(self.ctl_file, 'w')
+        f.write("chanscan")
+        f.close()
 
     def start(self):
         self._start_collection()
