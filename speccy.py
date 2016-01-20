@@ -40,7 +40,7 @@ class Speccy(object):
     def quit(self, *args):
         Gtk.main_quit()
         self.cleanup()
-    
+
     def cleanup(self):
         self.scanner.stop()
         self.sf.flush()
@@ -57,16 +57,20 @@ class Speccy(object):
             self.scanner.mode_background()
             self.mode_background = True
             self.reset_viewport()
+            self.sf.flush()
         elif key == 'c':
             self.scanner.mode_chanscan()
             self.mode_background = False
             self.reset_viewport()
+            self.sf.flush()
         elif key == 'Left':
             self.reset_viewport()
             self.scanner.retune_down()
+            self.sf.flush()
         elif key == 'Right':
             self.reset_viewport()
             self.scanner.retune_up()
+            self.sf.flush()
         #elif key == 'Up':
         #    print "debug: write 'trigger'"
         #    self.scanner.cmd_trigger
