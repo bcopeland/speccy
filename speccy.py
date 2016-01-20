@@ -13,7 +13,7 @@ class Speccy(object):
     max_per_freq = {}
 
     freq_min = 2402.0
-    freq_max = 2472.0
+    freq_max = 2482.0
 
     power_min = -110.0
     power_max = -20.0
@@ -35,6 +35,7 @@ class Speccy(object):
         self.scanner = Scanner(iface)
         fn = '%s/spectral_scan0' % self.scanner.get_debugfs_dir()
         self.sf = spectrum_file.open(fn)
+        self.mode_background = False
 
     def quit(self, *args):
         Gtk.main_quit()
@@ -50,6 +51,26 @@ class Speccy(object):
             self.show_envelope = not self.show_envelope
         elif key == 'q':
             self.quit()
+        elif key == 'b':
+            self.scanner.mode_background()
+            self.mode_background = True
+            self.reset_viewport()
+        elif key == 'c':
+            self.scanner.mode_chanscan()
+            self.mode_background = False
+            self.reset_viewport()
+        elif key == 'Left':
+            self.reset_viewport()
+            self.scanner.retune_down()
+        elif key == 'Right':
+            self.reset_viewport()
+            self.scanner.retune_up()
+        #elif key == 'Up':
+        #    print "debug: write 'trigger'"
+        #    self.scanner.cmd_trigger
+        else:
+            pass  # ignore unknown key
+
 
     def gen_pallete(self):
         # create a 256-color gradient from blue->green->white
@@ -124,6 +145,10 @@ class Speccy(object):
 
         cr.set_dash([])
 
+    def reset_viewport(self):
+        self.heatmap = {}
+        self.max_per_freq = {}
+
     def smooth_data(self, vals, window_len):
         smoothed = [self.power_min] * len(vals)
         half_window = window_len / 2
@@ -148,7 +173,7 @@ class Speccy(object):
         mpf = self.max_per_freq
 
         for tsf, freq, noise, rssi, sdata in xydata:
-            if freq < self.last_x:
+            if freq < self.last_x or self.mode_background:
                 # we wrapped the scan...
                 self.hmp_gen += 1
                 self.mpf_gen += 1

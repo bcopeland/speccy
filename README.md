@@ -26,5 +26,8 @@ where ```wlan0``` is the device you'd like to use.
 
  * 'l' - Toggle line graph
  * 's' - Toggle scatter plot
+ * 'c' - Switch scanner to 'chanscan' mode
+ * 'b' - Switch scanner to 'background' mode
+   * 'Arrow key Left' - Tune one channel up (only in 'background' mode)
+   * 'Arrow key Right' - Tune one channel up (only in 'background' mode)
  * 'q' - Quit the program
-
