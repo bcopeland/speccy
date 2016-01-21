@@ -35,11 +35,12 @@ class SpectrumFileReader(object):
         while not self.reader_thread_stop:
             if self.reader_thread_pause:
                 continue
+            ts = datetime.now()
             data = self.fp.read()
             if not data:
                 time.sleep(.05)
                 continue
-            self.sample_queue.put(data)
+            self.sample_queue.put((ts, data))
 
 
     hdrsize = 3

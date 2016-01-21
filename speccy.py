@@ -6,6 +6,9 @@ import sys
 from math import ceil
 import math
 from scanner import Scanner
+from datetime import datetime
+import os
+import cPickle
 
 
 class Speccy(object):
@@ -36,6 +39,10 @@ class Speccy(object):
         fn = '%s/spectral_scan0' % self.scanner.get_debugfs_dir()
         self.file_reader = SpectrumFileReader(fn)
         self.mode_background = False
+        if not os.path.exists("./spectral_data"):
+            os.mkdir("./spectral_data")
+        self.dump_to_file = False
+        self.dump_file = None
 
     def quit(self, *args):
         Gtk.main_quit()
@@ -75,6 +82,16 @@ class Speccy(object):
             self.scanner.cmd_samplecount_up()
         elif key == 'Down':
             self.scanner.cmd_samplecount_down()
+        elif key == 'd':
+            if self.dump_to_file:
+                self.dump_to_file = False
+                self.dump_file.close()
+                print "dump to file finished"
+            else:
+                fn = "./spectral_data/%s.bin" % datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+                print "start dumping to %s" % fn
+                self.dump_file = open(fn, 'w')
+                self.dump_to_file = True
         else:
             pass  # ignore unknown key
 
@@ -177,7 +194,11 @@ class Speccy(object):
         hmp = self.heatmap
         mpf = self.max_per_freq
 
-        xydata = self.file_reader.sample_queue.get()
+        ts, xydata = self.file_reader.sample_queue.get()
+
+        if self.dump_to_file:
+            cPickle.dump((ts, xydata), self.dump_file)
+
         for tsf, freq, noise, rssi, sdata in SpectrumFileReader.decode(xydata):
             if freq < self.last_x or self.mode_background:
                 # we wrapped the scan...
