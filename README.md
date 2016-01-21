@@ -26,8 +26,10 @@ where ```wlan0``` is the device you'd like to use.
 
  * 'l' - Toggle line graph
  * 's' - Toggle scatter plot
- * 'c' - Switch scanner to 'chanscan' mode
- * 'b' - Switch scanner to 'background' mode
+ * 'c' - Switch scanner to 'chanscan' mode [Default]. Hardware tunes to all WiFi channels and deliver a certain number of samples per channel. Default is 8
+   * 'Arrow key Up' - Double the number of samples (up to 255)
+   * 'Arrow key Down' - Divide the number of samples by two (down to 1)
+ * 'b' - Switch scanner to 'background' mode. Hardware will deliver as much samples as possible
    * 'Arrow key Left' - Tune one channel up (only in 'background' mode)
    * 'Arrow key Right' - Tune one channel up (only in 'background' mode)
  * 'q' - Quit the program

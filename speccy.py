@@ -71,9 +71,10 @@ class Speccy(object):
             self.reset_viewport()
             self.scanner.retune_up()
             self.sf.flush()
-        #elif key == 'Up':
-        #    print "debug: write 'trigger'"
-        #    self.scanner.cmd_trigger
+        elif key == 'Up':
+            self.scanner.cmd_samplecount_up()
+        elif key == 'Down':
+            self.scanner.cmd_samplecount_down()
         else:
             pass  # ignore unknown key
 

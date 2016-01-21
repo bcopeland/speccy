@@ -67,7 +67,9 @@ class Scanner(object):
 
         self.is_ath10k = self.debugfs_dir.endswith("ath10k")
         self.ctl_file = '%s/spectral_scan_ctl' % self.debugfs_dir
+        self.sample_count_file = '%s/spectral_count' % self.debugfs_dir
         self.cur_chan = 6
+        self.sample_count = 8
         self.mode = Value('i', 1)  # mode 1 = 'chanscan', mode 2 = 'background scan'
         self.process = Process(target=self._scan, args=())
 
@@ -99,6 +101,22 @@ class Scanner(object):
         self.cmd_setchannel(self.cur_chan)
         self.cmd_trigger()
 
+    def cmd_samplecount_up(self):
+        self.sample_count *= 2
+        if self.sample_count == 256:  # special case, 256 is not valid, set to last valid value
+            self.sample_count = 255
+        if self.sample_count > 255:
+            self.sample_count = 1
+        self.cmd_set_samplecount(self.sample_count)
+
+    def cmd_samplecount_down(self):
+        if self.sample_count == 255:
+            self.sample_count = 256  # undo special case, see above
+        self.sample_count /= 2
+        if self.sample_count < 1:
+            self.sample_count = 255
+        self.cmd_set_samplecount(self.sample_count)
+
     def cmd_trigger(self):
         f = open(self.ctl_file, 'w')
         f.write("trigger")
@@ -124,6 +142,12 @@ class Scanner(object):
         f.write("disable")
         f.close()
 
+    def cmd_set_samplecount(self, count):
+        print "set sample count to %d" % count
+        f = open(self.sample_count_file, 'w')
+        f.write("%s" % count)
+        f.close()
+
     def cmd_setchannel(self, ch):
         os.system("iw dev %s set channel %d" % (self.interface, ch))
 
@@ -132,6 +156,7 @@ class Scanner(object):
         self.process.start()
 
     def stop(self):
+        self.cmd_set_samplecount(8)
         self.cmd_disable()
         self.process.terminate()
         self.process.join()
