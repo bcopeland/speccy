@@ -1,6 +1,6 @@
 #!/usr/bin/python
 from gi.repository import Gtk, Gdk
-import spectrum_file
+from spectrum_file import SpectrumFileReader
 import signal
 import sys
 from math import ceil
@@ -34,7 +34,7 @@ class Speccy(object):
         self.color_map = self.gen_pallete()
         self.scanner = Scanner(iface)
         fn = '%s/spectral_scan0' % self.scanner.get_debugfs_dir()
-        self.sf = spectrum_file.open(fn)
+        self.file_reader = SpectrumFileReader(fn)
         self.mode_background = False
 
     def quit(self, *args):
@@ -43,7 +43,7 @@ class Speccy(object):
 
     def cleanup(self):
         self.scanner.stop()
-        self.sf.flush()
+        self.file_reader.stop()
 
     def on_key_press(self, w, event):
         key = Gdk.keyval_name(event.keyval)
@@ -57,20 +57,20 @@ class Speccy(object):
             self.scanner.mode_background()
             self.mode_background = True
             self.reset_viewport()
-            self.sf.flush()
+            self.file_reader.flush()
         elif key == 'c':
             self.scanner.mode_chanscan()
             self.mode_background = False
             self.reset_viewport()
-            self.sf.flush()
+            self.file_reader.flush()
         elif key == 'Left':
             self.reset_viewport()
             self.scanner.retune_down()
-            self.sf.flush()
+            self.file_reader.flush()
         elif key == 'Right':
             self.reset_viewport()
             self.scanner.retune_up()
-            self.sf.flush()
+            self.file_reader.flush()
         elif key == 'Up':
             self.scanner.cmd_samplecount_up()
         elif key == 'Down':
@@ -171,14 +171,14 @@ class Speccy(object):
         else:
             return True
 
-        xydata = self.sf.read()
-        if not xydata:
+        if self.file_reader.sample_queue.empty():
             return True
 
         hmp = self.heatmap
         mpf = self.max_per_freq
 
-        for tsf, freq, noise, rssi, sdata in xydata:
+        xydata = self.file_reader.sample_queue.get()
+        for tsf, freq, noise, rssi, sdata in SpectrumFileReader.decode(xydata):
             if freq < self.last_x or self.mode_background:
                 # we wrapped the scan...
                 self.hmp_gen += 1
