@@ -71,16 +71,24 @@ class Speccy(object):
             self.reset_viewport()
             self.file_reader.flush()
         elif key == 'Left':
+            if not self.mode_background:
+                return
             self.reset_viewport()
             self.scanner.retune_down()
             self.file_reader.flush()
         elif key == 'Right':
+            if not self.mode_background:
+                return
             self.reset_viewport()
             self.scanner.retune_up()
             self.file_reader.flush()
         elif key == 'Up':
+            if self.mode_background:
+                return
             self.scanner.cmd_samplecount_up()
         elif key == 'Down':
+            if self.mode_background:
+                return
             self.scanner.cmd_samplecount_down()
         elif key == 'd':
             if self.dump_to_file:
