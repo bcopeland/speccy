@@ -96,7 +96,11 @@ class Speccy(object):
                 self.dump_file.close()
                 print "dump to file finished"
             else:
-                fn = "./spectral_data/%s.bin" % datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+                if self.mode_background:
+                    mode = "bg"
+                else:
+                    mode = "ch"
+                fn = "./spectral_data/%s_%s.bin" % (datetime.now().strftime("%Y-%m-%d_%H-%M-%S"), mode)
                 print "start dumping to %s" % fn
                 self.dump_file = open(fn, 'w')
                 self.dump_to_file = True
