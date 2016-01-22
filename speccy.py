@@ -277,7 +277,7 @@ class Speccy(object):
                     cr.set_source_rgba(color[0], color[1], color[2], .8)
                     cr.fill()
 
-        if self.show_envelope:
+        if self.show_envelope and len(self.max_per_freq.keys()) > 0:
             freqs = sorted(self.max_per_freq.keys())
             pow_data = [self.max_per_freq[f] for f in freqs]
             pow_data = self.smooth_data(pow_data, 4)
