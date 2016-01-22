@@ -33,4 +33,5 @@ where ```wlan0``` is the device you'd like to use.
    * 'Arrow key Left' - Tune one channel up (only in 'background' mode)
    * 'Arrow key Right' - Tune one channel up (only in 'background' mode)
  * 'd' - Toggle dumping binary data with timestamp in a file
+ * 'u' - Toggle UI processing
  * 'q' - Quit the program

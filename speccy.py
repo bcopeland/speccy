@@ -43,6 +43,7 @@ class Speccy(object):
             os.mkdir("./spectral_data")
         self.dump_to_file = False
         self.dump_file = None
+        self.ui_update = True
 
     def quit(self, *args):
         Gtk.main_quit()
@@ -104,6 +105,8 @@ class Speccy(object):
                 print "start dumping to %s" % fn
                 self.dump_file = open(fn, 'w')
                 self.dump_to_file = True
+        elif key == 'u':
+            self.ui_update = not self.ui_update
         else:
             pass  # ignore unknown key
 
@@ -210,6 +213,9 @@ class Speccy(object):
 
         if self.dump_to_file:
             cPickle.dump((ts, xydata), self.dump_file)
+
+        if not self.ui_update:
+            return True
 
         for tsf, freq, noise, rssi, sdata in SpectrumFileReader.decode(xydata):
             if freq < self.last_x or self.mode_background:
