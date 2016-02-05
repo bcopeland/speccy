@@ -66,7 +66,7 @@ class SpectrumFileReader(object):
             if stype == 1:
                 if pos >= len(data) - SpectrumFileReader.hdrsize - SpectrumFileReader.type1_pktsize + 1:
                     break
-                pos += 3
+                pos += SpectrumFileReader.hdrsize
                 (max_exp, freq, rssi, noise, max_mag, max_index, hweight, tsf) = \
                     struct.unpack_from(">BHbbHBBQ", data, pos)
                 pos += 17
@@ -79,7 +79,7 @@ class SpectrumFileReader(object):
             elif stype == 2:
                 if pos >= len(data) - SpectrumFileReader.hdrsize - SpectrumFileReader.type2_pktsize + 1:
                     break
-                pos += 3
+                pos += SpectrumFileReader.hdrsize
                 (chantype, freq, rssi_l, rssi_u, tsf, noise_l, noise_u,
                  max_mag_l, max_mag_u, max_index_l, max_index_u,
                  hweight_l, hweight_u, max_exp) = \
@@ -96,7 +96,7 @@ class SpectrumFileReader(object):
             elif stype == 3:
                 if pos >= len(data) - SpectrumFileReader.hdrsize - SpectrumFileReader.type3_pktsize + 1:
                     break
-                pos += 3
+                pos += SpectrumFileReader.hdrsize
                 (chanwidth, freq1, freq2, noise, max_mag, gain_db,
                  base_pwr_db, tsf, max_index, rssi, relpwr_db, avgpwr_db,
                  max_exp) = \
