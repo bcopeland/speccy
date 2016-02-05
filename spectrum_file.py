@@ -91,21 +91,23 @@ class SpectrumFileReader(object):
                 sumsq_sample = 0
                 samples = []
                 for raw_sample in sdata:
-                    sample = raw_sample << max_exp
-                    sumsq_sample += sample*sample
-                    if sample == 0:
+                    if raw_sample == 0:
                         sample = 1
+                    else:
+                        sample = raw_sample << max_exp
+                    sumsq_sample += sample*sample
                     samples.append(sample)
 
                 if sumsq_sample == 0:
                     sumsq_sample = 1
+                sumsq_sample = 10 * math.log10(sumsq_sample)
 
                 sc_total = 56  # HT20: 56 OFDM subcarrier, HT40: 128
                 first_sc = freq - SpectrumFileReader.sc_wide * (sc_total/2 + 0.5)
                 pwr = {}
                 for i, sample in enumerate(samples):
                     subcarrier_freq = first_sc + i*SpectrumFileReader.sc_wide
-                    sigval = noise + rssi + 20 * math.log10(sample) - 10 * math.log10(sumsq_sample)
+                    sigval = noise + rssi + 20 * math.log10(sample) - sumsq_sample
                     pwr[subcarrier_freq] = sigval
 
                 yield (tsf, freq, noise, rssi, pwr)
