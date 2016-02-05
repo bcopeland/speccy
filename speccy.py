@@ -217,38 +217,28 @@ class Speccy(object):
         if not self.ui_update:
             return True
 
-        for tsf, freq, noise, rssi, sdata in SpectrumFileReader.decode(xydata):
-            if freq < self.last_x or self.mode_background:
+        for (tsf, freq_cf, noise, rssi, pwr) in SpectrumFileReader.decode(xydata):
+            if freq_cf < self.last_x or self.mode_background:
                 # we wrapped the scan...
                 self.hmp_gen += 1
                 self.mpf_gen += 1
 
-            sumsq_sample = sum([x*x for x in sdata])
-            for i, sample in enumerate(sdata):
-                center_freq = freq - (22.0 * 56 / 64.0) / 2 + (22.0 * (i + 0.5)/64.0)
-                if sample == 0:
-                    sample = 1
-                if sumsq_sample == 0:
-                    sumsq_sample = 1
+            for freq_sc, sigval in pwr.iteritems():
+                if freq_sc not in hmp or self.hmp_gen_tbl.get(freq_sc, 0) < self.hmp_gen:
+                    hmp[freq_sc] = {}
+                    self.hmp_gen_tbl[freq_sc] = self.hmp_gen
 
-                sigval = noise + rssi + \
-                    20 * math.log10(sample) - 10 * math.log10(sumsq_sample)
-
-                if center_freq not in hmp or self.hmp_gen_tbl.get(center_freq, 0) < self.hmp_gen:
-                    hmp[center_freq] = {}
-                    self.hmp_gen_tbl[center_freq] = self.hmp_gen
-
-                arr = hmp[center_freq]
+                arr = hmp[freq_sc]
                 mody = ceil(sigval*2.0)/2.0
                 arr.setdefault(mody, 0)
                 arr[mody] += 1.0
 
-                mpf.setdefault(center_freq, 0)
-                if sigval > mpf[center_freq] or self.mpf_gen_tbl.get(center_freq, 0) < self.mpf_gen:
-                    mpf[center_freq] = sigval
-                    self.mpf_gen_tbl[center_freq] = self.mpf_gen
+                mpf.setdefault(freq_sc, 0)
+                if sigval > mpf[freq_sc] or self.mpf_gen_tbl.get(freq_sc, 0) < self.mpf_gen:
+                    mpf[freq_sc] = sigval
+                    self.mpf_gen_tbl[freq_sc] = self.mpf_gen
 
-            self.last_x = freq
+            self.last_x = freq_cf
 
         self.heatmap = hmp
         self.max_per_freq = mpf
