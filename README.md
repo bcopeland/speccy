@@ -32,6 +32,8 @@ where ```wlan0``` is the device you'd like to use.
  * 'b' - Switch scanner to 'background' mode. Hardware will deliver as much samples as possible
    * 'Arrow key Left' - Tune one channel up (only in 'background' mode)
    * 'Arrow key Right' - Tune one channel up (only in 'background' mode)
+   * 'Arrow key Up' - Increase the number of samples hold for visualization
+   * 'Arrow key Down' - Decrease the number of samples hold for visualization
  * 'm' - Toggle between HT20 [default] and HT40 mode
  * 'd' - Toggle dumping binary data with timestamp in a file
  * 'u' - Toggle UI processing
@@ -39,4 +41,5 @@ where ```wlan0``` is the device you'd like to use.
 
 ## Open issues
 
+ * HT40 decoder seems to produce crap
  * Many features of this software are not tested on 5GHz / ath10k due lack of appropriate hardware

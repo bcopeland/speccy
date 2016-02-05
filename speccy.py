@@ -44,6 +44,8 @@ class Speccy(object):
         self.dump_to_file = False
         self.dump_file = None
         self.ui_update = True
+        self.bg_sample_count = 0
+        self.bg_sample_count_limit = 500
 
     def quit(self, *args):
         Gtk.main_quit()
@@ -85,12 +87,22 @@ class Speccy(object):
             self.file_reader.flush()
         elif key == 'Up':
             if self.mode_background:
-                return
-            self.scanner.cmd_samplecount_up()
+                self.bg_sample_count_limit += 50
+                self.bg_sample_count = 0
+                self.reset_viewport()
+                print "set bg persistence cnt to %d" % self.bg_sample_count_limit
+            else:
+                self.scanner.cmd_samplecount_up()
         elif key == 'Down':
             if self.mode_background:
-                return
-            self.scanner.cmd_samplecount_down()
+                self.bg_sample_count_limit -= 50
+                if self.bg_sample_count_limit < 0:
+                    self.bg_sample_count_limit = 0
+                self.bg_sample_count = 0
+                self.reset_viewport()
+                print "set bg persistence cnt to %d" % self.bg_sample_count_limit
+            else:
+                self.scanner.cmd_samplecount_down()
         elif key == 'd':
             if self.dump_to_file:
                 self.dump_to_file = False
@@ -223,10 +235,17 @@ class Speccy(object):
             return True
 
         for (tsf, freq_cf, noise, rssi, pwr) in SpectrumFileReader.decode(xydata):
-            if freq_cf < self.last_x or self.mode_background:
+            if not self.mode_background and freq_cf < self.last_x:
                 # we wrapped the scan...
                 self.hmp_gen += 1
                 self.mpf_gen += 1
+
+            if self.mode_background:
+                if self.bg_sample_count == self.bg_sample_count_limit:
+                    self.bg_sample_count = 0
+                    self.hmp_gen += 1
+                    self.mpf_gen += 1
+                self.bg_sample_count += 1
 
             for freq_sc, sigval in pwr.iteritems():
                 if freq_sc not in hmp or self.hmp_gen_tbl.get(freq_sc, 0) < self.hmp_gen:
