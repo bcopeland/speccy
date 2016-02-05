@@ -6,6 +6,7 @@ import math
 from Queue import Queue
 from datetime import datetime
 
+# FIXME: add support for 5MHz + 10MHz wide channel?
 
 class SpectrumFileReader(object):
 
@@ -50,7 +51,7 @@ class SpectrumFileReader(object):
     type3_pktsize = 26 + 64
 
     # ieee 802.11 constants
-    sc_wide = 0.3125 # in MHz
+    sc_wide = 0.3125  # in MHz
 
     @staticmethod
     def decode(data):
@@ -69,6 +70,7 @@ class SpectrumFileReader(object):
             if not ((stype == 1 and slen == SpectrumFileReader.type1_pktsize) or
                     (stype == 2 and slen == SpectrumFileReader.type2_pktsize) or
                     (stype == 3 and slen == SpectrumFileReader.type3_pktsize)):
+                print "skip malformed packet"
                 break  # header malformed, discard data. This event is very unlikely (once in ~3h)
                 # On the other hand, if we buffer the sample in a primitive way, we consume to much cpu
                 # for only one or too "rescued" samples every 2-3 hours
@@ -85,7 +87,7 @@ class SpectrumFileReader(object):
                 sdata = struct.unpack_from("56B", data, pos)
                 pos += 56
 
-                # unscale bins + create binsum
+                # calculate power in dBm
                 sumsq_sample = 0
                 samples = []
                 for raw_sample in sdata:
@@ -98,8 +100,7 @@ class SpectrumFileReader(object):
                 if sumsq_sample == 0:
                     sumsq_sample = 1
 
-                # calculate power in dBm
-                sc_total = 56  # HT20: 56 ODFM subcarrier, HT40: 128
+                sc_total = 56  # HT20: 56 OFDM subcarrier, HT40: 128
                 first_sc = freq - SpectrumFileReader.sc_wide * (sc_total/2 + 0.5)
                 pwr = {}
                 for i, sample in enumerate(samples):
@@ -108,7 +109,6 @@ class SpectrumFileReader(object):
                     pwr[subcarrier_freq] = sigval
 
                 yield (tsf, freq, noise, rssi, pwr)
-
 
             # 40 MHz
             elif stype == 2:
@@ -124,8 +124,49 @@ class SpectrumFileReader(object):
                 sdata = struct.unpack_from("128B", data, pos)
                 pos += 128
 
-                # FIXME send as two halves?
-                yield (tsf, freq, noise_l, rssi_l, sdata)
+                sc_total = 128  # HT20: 56 ODFM subcarrier, HT40: 128
+
+                # unpack bin values
+                samples = []
+                for raw_sample in sdata:
+                    if raw_sample == 0:
+                        sample = 1
+                    else:
+                        sample = raw_sample << max_exp
+                    samples.append(sample)
+
+                # create lower + upper binsum:
+                sumsq_sample_lower = 0
+                for sl in samples[0:63]:
+                    sumsq_sample_lower += sl*sl
+                sumsq_sample_lower = 10 * math.log10(sumsq_sample_lower)
+
+                sumsq_sample_upper = 0
+                for su in samples[64:128]:
+                    sumsq_sample_upper += su*su
+                sumsq_sample_upper = 10 * math.log10(sumsq_sample_upper)
+
+                # adjust center freq, depending on HT40+ or -
+                if chantype == 2:  # NL80211_CHAN_HT40MINUS
+                    freq -= 10
+                elif chantype == 3:  # NL80211_CHAN_HT40PLUS
+                    freq += 10
+                else:
+                    print "got unknown chantype: %d" % chantype
+                    raise
+
+                first_sc = freq - SpectrumFileReader.sc_wide * (sc_total/2 + 0.5)
+                pwr = {}
+                for i, sample in enumerate(samples):
+                    if i < 64:
+                        sigval = noise_l + rssi_l + 20 * math.log10(sample) - sumsq_sample_lower
+                    else:
+                        sigval = noise_u + rssi_u + 20 * math.log10(sample) - sumsq_sample_upper
+                    subcarrier_freq = first_sc + i*SpectrumFileReader.sc_wide
+                    pwr[subcarrier_freq] = sigval
+
+                yield (tsf, freq, (noise_l+noise_u)/2, (rssi_l+rssi_u)/2, pwr)
+
 
             # ath10k
             elif stype == 3:

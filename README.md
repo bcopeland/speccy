@@ -26,12 +26,17 @@ where ```wlan0``` is the device you'd like to use.
 
  * 'l' - Toggle line graph
  * 's' - Toggle scatter plot
- * 'c' - Switch scanner to 'chanscan' mode [Default]. Hardware tunes to all WiFi channels and deliver a certain number of samples per channel. Default is 8
+ * 'c' - Switch scanner to 'chanscan' mode [default]. Hardware tunes to all WiFi channels and deliver a certain number of samples per channel. Default is 8
    * 'Arrow key Up' - Double the number of samples (up to 255)
    * 'Arrow key Down' - Divide the number of samples by two (down to 1)
  * 'b' - Switch scanner to 'background' mode. Hardware will deliver as much samples as possible
    * 'Arrow key Left' - Tune one channel up (only in 'background' mode)
    * 'Arrow key Right' - Tune one channel up (only in 'background' mode)
+ * 'm' - Toggle between HT20 [default] and HT40 mode
  * 'd' - Toggle dumping binary data with timestamp in a file
  * 'u' - Toggle UI processing
  * 'q' - Quit the program
+
+## Open issues
+
+ * Many features of this software are not tested on 5GHz / ath10k due lack of appropriate hardware

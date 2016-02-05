@@ -107,6 +107,11 @@ class Speccy(object):
                 self.dump_to_file = True
         elif key == 'u':
             self.ui_update = not self.ui_update
+        elif key == 'm':
+            self.reset_viewport()
+            self.scanner.cmd_toggle_HTMode()
+            self.file_reader.flush()
+
         else:
             pass  # ignore unknown key
 

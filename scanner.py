@@ -38,7 +38,7 @@ class Scanner(object):
             os.system("ifconfig %s down" % self.interface)
             os.system("iw dev %s set type monitor" % self.interface)
             os.system("ifconfig %s up" % self.interface)
-            self.cmd_setchannel(self.cur_chan)
+            self.cmd_setchannel()
             self.cmd_background()
             self.cmd_trigger()
         else:
@@ -71,6 +71,7 @@ class Scanner(object):
         self.cur_chan = 6
         self.sample_count = 8
         self.mode = Value('i', 1)  # mode 1 = 'chanscan', mode 2 = 'background scan'
+        self.channel_mode = "HT20"
         self.process = Process(target=self._scan, args=())
 
     def mode_chanscan(self):
@@ -88,7 +89,8 @@ class Scanner(object):
         if self.cur_chan == 14:
             self.cur_chan = 1
         print "tune to channel %d" % self.cur_chan
-        self.cmd_setchannel(self.cur_chan)
+        self.fix_ht40_mode()
+        self.cmd_setchannel()
         self.cmd_trigger()
 
     def retune_down(self):  # FIXME: not save for 5Ghz / ath10k
@@ -98,7 +100,8 @@ class Scanner(object):
         if self.cur_chan == 0:
             self.cur_chan = 13
         print "tune to channel %d" % self.cur_chan
-        self.cmd_setchannel(self.cur_chan)
+        self.fix_ht40_mode()
+        self.cmd_setchannel()
         self.cmd_trigger()
 
     def cmd_samplecount_up(self):
@@ -148,14 +151,37 @@ class Scanner(object):
         f.write("%s" % count)
         f.close()
 
-    def cmd_setchannel(self, ch):
-        os.system("iw dev %s set channel %d" % (self.interface, ch))
+    def cmd_setchannel(self):
+        print "set channel to %d in mode %s" % (self.cur_chan, self.channel_mode)
+        os.system("iw dev %s set channel %d %s" % (self.interface, self.cur_chan, self.channel_mode))
+
+    def fix_ht40_mode(self):
+        if self.channel_mode != "HT20":
+            # see https://wireless.wiki.kernel.org/en/developers/regulatory/processing_rules#mhz_channels1
+            if self.cur_chan < 8:
+                self.channel_mode = "HT40+"
+            else:
+                self.channel_mode = "HT40-"
+
+    def cmd_toggle_HTMode(self):
+        if self.channel_mode == "HT40+" or self.channel_mode == "HT40-":
+             self.channel_mode = "HT20"
+        else: # see https://wireless.wiki.kernel.org/en/developers/regulatory/processing_rules#mhz_channels1
+            if self.cur_chan < 8:
+                self.channel_mode = "HT40+"
+            else:
+                self.channel_mode = "HT40-"
+        self.cmd_setchannel()
+        self.cmd_trigger()
+
 
     def start(self):
         self._start_collection()
         self.process.start()
 
     def stop(self):
+        if self.channel_mode != "HT20":
+            self.cmd_toggle_HTMode()
         self.cmd_set_samplecount(8)
         self.cmd_disable()
         self.process.terminate()
