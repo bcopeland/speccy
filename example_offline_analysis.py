@@ -8,9 +8,11 @@ def process(fn):
     f = open(fn, 'r')
     while True:
         try:
-            ts, sample_data = cPickle.load(f)
-            for tsf, freq, noise, rssi, sdata in SpectrumFileReader.decode(sample_data):
-                print ts, tsf, freq, noise
+            device_id, ts, sample_data = cPickle.load(f)
+            for tsf, freq, noise, rssi, pwrs in SpectrumFileReader.decode(sample_data):
+                print device_id, ts, tsf, freq, noise, rssi
+                for carrier_freq, pwr_level in pwrs.iteritems():
+                    print carrier_freq, pwr_level
         except EOFError:
             break
 
