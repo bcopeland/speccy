@@ -34,10 +34,11 @@ class Scanner(object):
                 os.system('%s >/dev/null 2>/dev/null' % cmd)
             time.sleep(.01)
 
-    def __init__(self, interface, freqlist=None):
+    def __init__(self, interface, idx=0, freqlist=None):
         self.interface = interface
         self.phy = ""
-        self.monitor_name = "ssmon0"
+        self.idx = idx
+        self.monitor_name = "ssmon%d" % self.idx  # just a arbitrary, but unique id
         self.monitor_added = False
         self.freqlist = freqlist
         self.debugfs_dir = self._find_debugfs_dir()
@@ -53,6 +54,7 @@ class Scanner(object):
         self.mode = Value('i', -1)  # -1 = undef, 1 = 'chanscan', 2 = 'background scan', 3 = 'noninvasive bg scan'
         self.channel_mode = "HT20"
         self.process = None
+        self.file_reader = None
         self.noninvasive = False
 
     def hw_setup_chanscan(self):
