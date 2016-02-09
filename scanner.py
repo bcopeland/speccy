@@ -18,32 +18,9 @@ class Scanner(object):
         for dirname, subd, files in os.walk('/sys/kernel/debug/ieee80211'):
             if 'spectral_scan_ctl' in files:
                 if os.path.exists('%s/../%s' % (dirname, netdev_dir)):
+                    self.phy = dirname.split(os.path.sep)[-2]
                     return dirname
         return None
-
-    def _start_collection(self):
-        if self.mode.value == 1:
-            print "enter 'chanscan' mode: set dev type to 'managed'"
-            os.system("ifconfig %s down" % self.interface)
-            os.system("iw dev %s set type managed" % self.interface)
-            os.system("ifconfig %s up" % self.interface)
-
-            if self.is_ath10k:
-                self.cmd_background()
-            else:
-                self.cmd_chanscan()
-
-        elif self.mode.value == 2:
-            print "enter 'background' mode: set dev type to 'monitor'"
-            os.system("ifconfig %s down" % self.interface)
-            os.system("iw dev %s set type monitor" % self.interface)
-            os.system("ifconfig %s up" % self.interface)
-            self.cmd_setchannel()
-            self.cmd_background()
-            self.cmd_trigger()
-        else:
-            print "unknown mode '%d'" % self.mode.value
-            exit(0)
 
     def _scan(self):
         while True:
@@ -59,6 +36,9 @@ class Scanner(object):
 
     def __init__(self, interface, freqlist=None):
         self.interface = interface
+        self.phy = ""
+        self.monitor_name = "ssmon0"
+        self.monitor_added = False
         self.freqlist = freqlist
         self.debugfs_dir = self._find_debugfs_dir()
         if not self.debugfs_dir:
@@ -72,15 +52,47 @@ class Scanner(object):
         self.sample_count = 8
         self.mode = Value('i', 1)  # mode 1 = 'chanscan', mode 2 = 'background scan'
         self.channel_mode = "HT20"
-        self.process = Process(target=self._scan, args=())
+        self.process = None
+        self.noninvasive = False
+
+    def hw_setup_chanscan(self):
+        print "enter 'chanscan' mode: set dev type to 'managed'"
+        os.system("ifconfig %s down" % self.interface)
+        os.system("iw dev %s set type managed" % self.interface)
+        os.system("ifconfig %s up" % self.interface)
+        if self.is_ath10k:
+            self.cmd_background()
+        else:
+            self.cmd_chanscan()
+
+    def hw_setup_background(self):
+        if self.noninvasive:
+            self.dev_add_monitor()
+        else:
+            print "enter 'background' mode: set dev type to 'monitor'"
+            os.system("ifconfig %s down" % self.interface)
+            os.system("iw dev %s set type monitor" % self.interface)
+            os.system("ifconfig %s up" % self.interface)
+            self.cmd_setchannel()
+        self.cmd_background()
+        self.cmd_trigger()
 
     def mode_chanscan(self):
-        self.mode.value = 1
-        self._start_collection()
+        if self.mode.value != 1:
+            self.hw_setup_chanscan()
+            self.mode.value = 1
 
     def mode_background(self):
-        self.mode.value = 2
-        self._start_collection()
+        if self.mode.value != 2:
+            self.hw_setup_background()
+            self.mode.value = 2
+
+    def mode_manual(self):
+        self.mode.value = 3
+
+    def mode_noninvasive_background(self):
+        self.noninvasive = True
+        self.mode_background()
 
     def retune_up(self):  # FIXME: not save for 5Ghz / ath10k
         if self.mode.value == 1:  # tuning not possible in mode 'chanscan'
@@ -130,10 +142,10 @@ class Scanner(object):
         f.write("background")
         f.close()
 
-    """def cmd_manual(self):
+    def cmd_manual(self):
         f = open(self.ctl_file, 'w')
         f.write("manual")
-        f.close()"""
+        f.close()
 
     def cmd_chanscan(self):
         f = open(self.ctl_file, 'w')
@@ -153,7 +165,10 @@ class Scanner(object):
 
     def cmd_setchannel(self):
         print "set channel to %d in mode %s" % (self.cur_chan, self.channel_mode)
-        os.system("iw dev %s set channel %d %s" % (self.interface, self.cur_chan, self.channel_mode))
+        if not self.noninvasive:
+            os.system("iw dev %s set channel %d %s" % (self.interface, self.cur_chan, self.channel_mode))
+        else:  # this seems to be strange:
+            os.system("iw dev %s set channel %d %s" % (self.monitor_name, self.cur_chan, self.channel_mode))
 
     def fix_ht40_mode(self):
         if self.channel_mode != "HT20":
@@ -174,9 +189,23 @@ class Scanner(object):
         self.cmd_setchannel()
         self.cmd_trigger()
 
+    def dev_add_monitor(self):
+        if self.monitor_added:
+            return
+        print "add a monitor interface"
+        os.system("iw phy %s interface add %s type monitor" % (self.phy, self.monitor_name))
+        os.system("ifconfig %s up" % self.monitor_name)
+        self.monitor_added = True
+
+    def dev_del_monitor(self):
+        if self.monitor_added:
+            os.system("ifconfig %s down" % self.monitor_name)
+            os.system("iw dev %s del" % self.monitor_name)
+            self.monitor_added = False
 
     def start(self):
-        self._start_collection()
+        self.hw_setup_chanscan()  # start in chanscan mode
+        self.process = Process(target=self._scan, args=())
         self.process.start()
 
     def stop(self):
@@ -184,8 +213,11 @@ class Scanner(object):
             self.cmd_toggle_HTMode()
         self.cmd_set_samplecount(8)
         self.cmd_disable()
-        self.process.terminate()
-        self.process.join()
+        self.dev_del_monitor()
+        if self.process is not None:
+            self.process.terminate()
+            self.process.join()
+            self.process = None
 
     def get_debugfs_dir(self):
         return self.debugfs_dir
