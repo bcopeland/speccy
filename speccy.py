@@ -36,6 +36,7 @@ class Speccy(object):
     def __init__(self, iface):
         self.color_map = self.gen_pallete()
         self.scanner = Scanner(iface)
+        self.scanner.mode_chanscan()
         fn = '%s/spectral_scan0' % self.scanner.get_debugfs_dir()
         self.file_reader = SpectrumFileReader(fn)
         self.mode_background = False

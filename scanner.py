@@ -50,7 +50,7 @@ class Scanner(object):
         self.sample_count_file = '%s/spectral_count' % self.debugfs_dir
         self.cur_chan = 6
         self.sample_count = 8
-        self.mode = Value('i', 1)  # mode 1 = 'chanscan', mode 2 = 'background scan'
+        self.mode = Value('i', -1)  # -1 = undef, 1 = 'chanscan', 2 = 'background scan', 3 = 'noninvasive bg scan'
         self.channel_mode = "HT20"
         self.process = None
         self.noninvasive = False
@@ -204,9 +204,9 @@ class Scanner(object):
             self.monitor_added = False
 
     def start(self):
-        self.hw_setup_chanscan()  # start in chanscan mode
-        self.process = Process(target=self._scan, args=())
-        self.process.start()
+        if self.process is None:
+            self.process = Process(target=self._scan, args=())
+            self.process.start()
 
     def stop(self):
         if self.channel_mode != "HT20":
@@ -218,6 +218,7 @@ class Scanner(object):
             self.process.terminate()
             self.process.join()
             self.process = None
+        self.mode.value = -1
 
     def get_debugfs_dir(self):
         return self.debugfs_dir
