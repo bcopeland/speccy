@@ -36,7 +36,7 @@ class Speccy(object):
     def __init__(self, ifaces):
         self.color_map = self.gen_pallete()
         self.scanners = []
-        idx = 1
+        idx = 0
         for iface in ifaces:
             scanner = Scanner(iface, idx=idx)
             scanner.mode_chanscan()
@@ -45,7 +45,7 @@ class Speccy(object):
             scanner.file_reader = reader
             self.scanners.append(scanner)
             idx += 1
-        self.dev_idx = 1  # id of currently selected device
+        self.dev_idx = 0  # id of currently selected device
         if not os.path.exists("./spectral_data"):
             os.mkdir("./spectral_data")
         self.dump_to_file = False
