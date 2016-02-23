@@ -1,11 +1,14 @@
 #!/usr/bin/python
 from gi.repository import Gtk, Gdk
-import spectrum_file
+from spectrum_file import SpectrumFileReader
 import signal
 import sys
 from math import ceil
 import math
 from scanner import Scanner
+from datetime import datetime
+import os
+import cPickle
 
 
 class Speccy(object):
@@ -13,7 +16,7 @@ class Speccy(object):
     max_per_freq = {}
 
     freq_min = 2402.0
-    freq_max = 2472.0
+    freq_max = 2482.0
 
     power_min = -110.0
     power_max = -20.0
@@ -30,17 +33,35 @@ class Speccy(object):
     color_map = None
     sf = None
 
-    def __init__(self, iface):
+    def __init__(self, ifaces):
         self.color_map = self.gen_pallete()
-        self.scanner = Scanner(iface)
-        fn = '%s/spectral_scan0' % self.scanner.get_debugfs_dir()
-        self.sf = spectrum_file.open(fn)
+        self.scanners = []
+        idx = 0
+        for iface in ifaces:
+            scanner = Scanner(iface, idx=idx)
+            scanner.mode_chanscan()
+            fn = '%s/spectral_scan0' % scanner.get_debugfs_dir()
+            reader = SpectrumFileReader(fn)
+            scanner.file_reader = reader
+            self.scanners.append(scanner)
+            idx += 1
+        self.dev_idx = 0  # id of currently selected device
+        if not os.path.exists("./spectral_data"):
+            os.mkdir("./spectral_data")
+        self.dump_to_file = False
+        self.dump_file = None
+        self.ui_update = True
+        self.bg_sample_count = 0
+        self.bg_sample_count_limit = 500
 
     def quit(self, *args):
         Gtk.main_quit()
+        self.cleanup()
 
-    def cleanup(self, *args):
-        self.scanner.stop()
+    def cleanup(self):
+        for scanner in self.scanners:
+            scanner.stop()
+            scanner.file_reader.stop()
 
     def on_key_press(self, w, event):
         key = Gdk.keyval_name(event.keyval)
@@ -50,6 +71,65 @@ class Speccy(object):
             self.show_envelope = not self.show_envelope
         elif key == 'q':
             self.quit()
+        elif key == 'b':
+            self.scanners[self.dev_idx].mode_background()
+            self.reset_viewport()
+            self.scanners[self.dev_idx].file_reader.flush()
+        elif key == 'c':
+            self.scanners[self.dev_idx].mode_chanscan()
+            self.reset_viewport()
+            self.scanners[self.dev_idx].file_reader.flush()
+        elif key == 'Left':
+            if self.scanners[self.dev_idx].mode.value == 1:  # chanscan
+                return
+            self.reset_viewport()
+            self.scanners[self.dev_idx].retune_down()
+            self.scanners[self.dev_idx].file_reader.flush()
+        elif key == 'Right':
+            if self.scanners[self.dev_idx].mode.value == 1:  # chanscan
+                return
+            self.reset_viewport()
+            self.scanners[self.dev_idx].retune_up()
+            self.scanners[self.dev_idx].file_reader.flush()
+        elif key == 'Up':
+            if self.scanners[self.dev_idx].mode.value == 2:  # background
+                self.bg_sample_count_limit += 50
+                self.bg_sample_count = 0
+                self.reset_viewport()
+                print "set bg persistence cnt to %d" % self.bg_sample_count_limit
+            else:
+                self.scanners[self.dev_idx].cmd_samplecount_up()
+        elif key == 'Down':
+            if self.scanners[self.dev_idx].mode.value == 2: # background
+                self.bg_sample_count_limit -= 50
+                if self.bg_sample_count_limit < 0:
+                    self.bg_sample_count_limit = 0
+                self.bg_sample_count = 0
+                self.reset_viewport()
+                print "set bg persistence cnt to %d" % self.bg_sample_count_limit
+            else:
+                self.scanners[self.dev_idx].cmd_samplecount_down()
+        elif key == 'd':
+            if self.dump_to_file:
+                self.dump_to_file = False
+                self.dump_file.close()
+                print "dump to file finished"
+            else:
+                fn = "./spectral_data/%s.bin" % datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+                print "start dumping to %s" % fn
+                self.dump_file = open(fn, 'w')
+                self.dump_to_file = True
+        elif key == 'u':
+            self.ui_update = not self.ui_update
+        elif key == 'm':
+            self.reset_viewport()
+            self.scanners[self.dev_idx].cmd_toggle_HTMode()
+            self.scanners[self.dev_idx].file_reader.flush()
+        elif key == '1' or key == '2' or key == '3' or key == '4':
+            self.dev_idx = int(key) - 1
+
+        else:
+            pass  # ignore unknown key
 
     def gen_pallete(self):
         # create a 256-color gradient from blue->green->white
@@ -124,6 +204,10 @@ class Speccy(object):
 
         cr.set_dash([])
 
+    def reset_viewport(self):
+        self.heatmap = {}
+        self.max_per_freq = {}
+
     def smooth_data(self, vals, window_len):
         smoothed = [self.power_min] * len(vals)
         half_window = window_len / 2
@@ -140,52 +224,57 @@ class Speccy(object):
         else:
             return True
 
-        xydata = self.sf.read()
-        if not xydata:
-            return True
-
         hmp = self.heatmap
         mpf = self.max_per_freq
 
-        for tsf, freq, noise, rssi, sdata in xydata:
-            if freq < self.last_x:
-                # we wrapped the scan...
-                self.hmp_gen += 1
-                self.mpf_gen += 1
+        for scanner in self.scanners:
+            if scanner.file_reader.sample_queue.empty():
+                continue
 
-            sumsq_sample = sum([x*x for x in sdata])
-            for i, sample in enumerate(sdata):
-                f = freq - (22.0 * 56 / 64.0) / 2 + (22.0 * (i + 0.5)/64.0)
-                if sample == 0:
-                    sample = 1
-                if sumsq_sample == 0:
-                    sumsq_sample = 1
+            ts, xydata = scanner.file_reader.sample_queue.get()
+            if self.dump_to_file:
+                cPickle.dump((scanner.idx, ts, xydata), self.dump_file)
 
-                sigval = noise + rssi + \
-                    20 * math.log10(sample) - 10 * math.log10(sumsq_sample)
+            if not self.ui_update:
+                continue
 
-                if f not in hmp or self.hmp_gen_tbl.get(f, 0) < self.hmp_gen:
-                    hmp[f] = {}
-                    self.hmp_gen_tbl[f] = self.hmp_gen
+            for (tsf, freq_cf, noise, rssi, pwr) in SpectrumFileReader.decode(xydata):
+                if scanner.mode.value == 1 and freq_cf < self.last_x:  # chanscan
+                    # we wrapped the scan...
+                    self.hmp_gen += 1
+                    self.mpf_gen += 1
 
-                arr = hmp[f]
-                mody = ceil(sigval*2.0)/2.0
-                arr.setdefault(mody, 0)
-                arr[mody] += 1.0
+                if scanner.mode.value == 2:  # background
+                    if self.bg_sample_count == self.bg_sample_count_limit:
+                        self.bg_sample_count = 0
+                        self.hmp_gen += 1
+                        self.mpf_gen += 1
+                    self.bg_sample_count += 1
 
-                mpf.setdefault(f, 0)
-                if sigval > mpf[f] or self.mpf_gen_tbl.get(f, 0) < self.mpf_gen:
-                    mpf[f] = sigval
-                    self.mpf_gen_tbl[f] = self.mpf_gen
+                for freq_sc, sigval in pwr.iteritems():
+                    if freq_sc not in hmp or self.hmp_gen_tbl.get(freq_sc, 0) < self.hmp_gen:
+                        hmp[freq_sc] = {}
+                        self.hmp_gen_tbl[freq_sc] = self.hmp_gen
 
-            self.last_x = freq
+                    arr = hmp[freq_sc]
+                    mody = ceil(sigval*2.0)/2.0
+                    arr.setdefault(mody, 0)
+                    arr[mody] += 1.0
 
+                    mpf.setdefault(freq_sc, 0)
+                    if sigval > mpf[freq_sc] or self.mpf_gen_tbl.get(freq_sc, 0) < self.mpf_gen:
+                        mpf[freq_sc] = sigval
+                        self.mpf_gen_tbl[freq_sc] = self.mpf_gen
+
+                self.last_x = freq_cf
+
+        if not self.ui_update:
+            return True
 
         self.heatmap = hmp
         self.max_per_freq = mpf
         w.queue_draw()
         return True
-
 
     def draw(self, w, cr):
 
@@ -196,19 +285,19 @@ class Speccy(object):
         rect_size = cr.device_to_user_distance(3, 3)
 
         zmax = 0
-        for x in self.heatmap.keys():
-            for y, value in self.heatmap[x].iteritems():
+        for center_freq in self.heatmap.keys():
+            for power, value in self.heatmap[center_freq].iteritems():
                 if zmax < value:
-                    zmax = self.heatmap[x][y]
+                    zmax = self.heatmap[center_freq][power]
 
         if not zmax:
             zmax = 1
 
         if self.show_heatmap:
-            for x in self.heatmap.keys():
-                for y, value in self.heatmap[x].iteritems():
+            for center_freq in self.heatmap.keys():
+                for power, value in self.heatmap[center_freq].iteritems():
                     # scale x to viewport
-                    posx, posy = self.sample_to_viewport(x, y, wx, wy)
+                    posx, posy = self.sample_to_viewport(center_freq, power, wx, wy)
 
                     # don't bother drawing partially off-screen pixels
                     if posx < 0 or posx > wx or posy < 0 or posy > wy:
@@ -219,7 +308,7 @@ class Speccy(object):
                     cr.set_source_rgba(color[0], color[1], color[2], .8)
                     cr.fill()
 
-        if self.show_envelope:
+        if self.show_envelope and len(self.max_per_freq.keys()) > 0:
             freqs = sorted(self.max_per_freq.keys())
             pow_data = [self.max_per_freq[f] for f in freqs]
             pow_data = self.smooth_data(pow_data, 4)
@@ -231,7 +320,6 @@ class Speccy(object):
                 x, y = self.sample_to_viewport(freq, pow_data[i], wx, wy)
                 cr.line_to(x, y)
             cr.stroke()
-
 
     def main(self):
 
@@ -250,11 +338,15 @@ class Speccy(object):
 
         w.show_all()
 
-        self.scanner.start()
+        for scanner in self.scanners:
+            scanner.start()
 
         Gtk.main()
 
         self.cleanup()
 
 if __name__ == '__main__':
-    Speccy(sys.argv[1]).main()
+    if len(sys.argv) == 1:
+        print "\nUsage: \n  $ sudo python speccy.py wlanX [wlanY] [wlanZ] [wlanA]\n"
+        exit(0)
+    Speccy(sys.argv[1:]).main()
