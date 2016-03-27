@@ -12,13 +12,19 @@ class Scanner(object):
     debugfs_dir = None
     is_ath10k = False
 
+    def dev_to_phy(self, dev):
+        f = open('/sys/class/net/%s/phy80211/name' % dev)
+        phy = f.read().strip()
+        f.close()
+        return phy
+
     def _find_debugfs_dir(self):
         ''' search debugfs for spectral_scan_ctl for this interface '''
-        netdev_dir = 'netdev:%s' % self.interface
         for dirname, subd, files in os.walk('/sys/kernel/debug/ieee80211'):
             if 'spectral_scan_ctl' in files:
-                if os.path.exists('%s/../%s' % (dirname, netdev_dir)):
-                    self.phy = dirname.split(os.path.sep)[-2]
+                phy = dirname.split(os.path.sep)[-2]
+                if phy == self.dev_to_phy(self.interface):
+                    self.phy = phy
                     return dirname
         return None
 
