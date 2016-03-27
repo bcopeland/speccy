@@ -59,9 +59,9 @@ class Scanner(object):
 
     def hw_setup_chanscan(self):
         print "enter 'chanscan' mode: set dev type to 'managed'"
-        os.system("ifconfig %s down" % self.interface)
+        os.system("ip link set %s down" % self.interface)
         os.system("iw dev %s set type managed" % self.interface)
-        os.system("ifconfig %s up" % self.interface)
+        os.system("ip link set %s up" % self.interface)
         if self.is_ath10k:
             self.cmd_background()
         else:
@@ -72,9 +72,9 @@ class Scanner(object):
             self.dev_add_monitor()
         else:
             print "enter 'background' mode: set dev type to 'monitor'"
-            os.system("ifconfig %s down" % self.interface)
+            os.system("ip link set %s down" % self.interface)
             os.system("iw dev %s set type monitor" % self.interface)
-            os.system("ifconfig %s up" % self.interface)
+            os.system("ip link set %s up" % self.interface)
             self.cmd_setchannel()
         self.cmd_background()
         self.cmd_trigger()
@@ -196,12 +196,12 @@ class Scanner(object):
             return
         print "add a monitor interface"
         os.system("iw phy %s interface add %s type monitor" % (self.phy, self.monitor_name))
-        os.system("ifconfig %s up" % self.monitor_name)
+        os.system("ip link set %s up" % self.monitor_name)
         self.monitor_added = True
 
     def dev_del_monitor(self):
         if self.monitor_added:
-            os.system("ifconfig %s down" % self.monitor_name)
+            os.system("ip link set %s down" % self.monitor_name)
             os.system("iw dev %s del" % self.monitor_name)
             self.monitor_added = False
 
