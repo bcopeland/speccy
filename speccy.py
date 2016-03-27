@@ -1,5 +1,5 @@
 #!/usr/bin/python
-from gi.repository import Gtk, Gdk
+from gi.repository import Gtk, Gdk, GdkPixbuf, GLib
 from spectrum_file import SpectrumFileReader
 import signal
 import sys
@@ -9,6 +9,7 @@ from scanner import Scanner
 from datetime import datetime
 import os
 import cPickle
+import struct
 
 
 class Speccy(object):
@@ -173,11 +174,13 @@ class Speccy(object):
         cr.move_to(x - width / 2 - x_bearing, y - height / 2 - y_bearing)
         cr.show_text(text)
 
-    def draw_grid(self, cr, wx, wy):
-        # clear the viewport with a black rectangle
+    def clear_screen(self, cr, wx, wy):
+        """ clear the viewport with a black rectangle """
         cr.rectangle(0, 0, wx, wy)
         cr.set_source_rgb(0, 0, 0)
         cr.fill()
+
+    def draw_grid(self, cr, wx, wy):
 
         cr.set_source_rgb(1, 1, 1)
         cr.set_line_width(0.5)
@@ -277,12 +280,10 @@ class Speccy(object):
         return True
 
     def draw(self, w, cr):
-
         wx, wy = (w.get_window().get_width(), w.get_window().get_height())
-        self.draw_grid(cr, wx, wy)
+        self.clear_screen(cr, wx, wy)
 
         # samples
-        rect_size = cr.device_to_user_distance(3, 3)
 
         zmax = 0
         for center_freq in self.heatmap.keys():
@@ -294,6 +295,7 @@ class Speccy(object):
             zmax = 1
 
         if self.show_heatmap:
+            pixdata = [chr(0)] * (wx * wy * 3)
             for center_freq in self.heatmap.keys():
                 for power, value in self.heatmap[center_freq].iteritems():
                     # scale x to viewport
@@ -304,11 +306,32 @@ class Speccy(object):
                         continue
 
                     color = self.color_map[int(len(self.color_map) * value / zmax) & 0xff]
-                    cr.rectangle(posx-rect_size[0]/2, posy-rect_size[1]/2, rect_size[0], rect_size[1])
-                    cr.set_source_rgba(color[0], color[1], color[2], .8)
-                    cr.fill()
+                    r = struct.pack("B", int(color[0] * 255))
+                    g = struct.pack("B", int(color[1] * 255))
+                    b = struct.pack("B", int(color[2] * 255))
+
+                    posx = int(posx)
+                    posy = int(posy)
+
+                    for y in range(posy-1, posy+2):
+                        if y < 0 or y >= wy:
+                            continue
+                        for x in range(posx-1, posx+2):
+                            if x < 0 or x >= wx:
+                                continue
+                            pixdata[wx * y * 3 + x * 3 + 0] = r
+                            pixdata[wx * y * 3 + x * 3 + 1] = g
+                            pixdata[wx * y * 3 + x * 3 + 2] = b
+
+            bytestr = ''.join(pixdata)
+            pixbuf = GdkPixbuf.Pixbuf.new_from_bytes(GLib.Bytes.new(bytestr),
+                GdkPixbuf.Colorspace.RGB, False, 8, wx, wy, wx * 3)
+            Gdk.cairo_set_source_pixbuf(cr, pixbuf, 0, 0)
+            cr.rectangle(0,0, wx, wy)
+            cr.fill()
 
         if self.show_envelope and len(self.max_per_freq.keys()) > 0:
+            cr.set_line_width(0.5)
             freqs = sorted(self.max_per_freq.keys())
             pow_data = [self.max_per_freq[f] for f in freqs]
             pow_data = self.smooth_data(pow_data, 4)
@@ -320,6 +343,9 @@ class Speccy(object):
                 x, y = self.sample_to_viewport(freq, pow_data[i], wx, wy)
                 cr.line_to(x, y)
             cr.stroke()
+
+        self.draw_grid(cr, wx, wy)
+
 
     def main(self):
 
