@@ -302,6 +302,9 @@ class Speccy(object):
             zmax = 1
 
         if self.show_heatmap:
+            # collect rectangle centers binned by intensity
+            pal_size = len(self.color_map)
+            samples = {}
             for center_freq in self.heatmap.keys():
                 for power, value in self.heatmap[center_freq].iteritems():
                     # scale x to viewport
@@ -311,10 +314,17 @@ class Speccy(object):
                     if posx < 0 or posx > wx or posy < 0 or posy > wy:
                         continue
 
-                    color = self.color_map[int(len(self.color_map) * value / zmax) & 0xff]
-                    cr.rectangle(posx-rect_size[0]/2, posy-rect_size[1]/2, rect_size[0], rect_size[1])
-                    cr.set_source_rgba(color[0], color[1], color[2], .8)
-                    cr.fill()
+                    intensity = int(pal_size * value  / zmax) & 0xff
+                    l = samples.setdefault(intensity, [])
+                    l += [(posx, posy)]
+
+            # render all rectangles batched by color
+            for intensity, pts in samples.iteritems():
+                color = self.color_map[intensity]
+                cr.set_source_rgba(color[0], color[1], color[2], .8)
+                for xy in pts:
+                    cr.rectangle(xy[0]-rect_size[0]/2, xy[1]-rect_size[1]/2, rect_size[0], rect_size[1])
+                cr.fill()
 
         if self.show_envelope and len(self.max_per_freq.keys()) > 0:
             freqs = sorted(self.max_per_freq.keys())
