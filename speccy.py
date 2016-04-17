@@ -35,6 +35,9 @@ class Speccy(object):
     lastframe = 0
     redraws = 0
 
+    fps = [0] * 10
+    fpsi = 0
+
     color_map = None
     sf = None
 
@@ -282,7 +285,7 @@ class Speccy(object):
         return True
 
     def draw(self, w, cr):
-
+        start = datetime.now()
         wx, wy = (w.get_window().get_width(), w.get_window().get_height())
         self.draw_grid(cr, wx, wy)
 
@@ -325,6 +328,12 @@ class Speccy(object):
                 x, y = self.sample_to_viewport(freq, pow_data[i], wx, wy)
                 cr.line_to(x, y)
             cr.stroke()
+
+        end = datetime.now()
+        elapsed = (end - start).total_seconds()
+        self.fps[self.fpsi] = 1/elapsed
+        self.fpsi = (self.fpsi + 1) % len(self.fps)
+        sys.stderr.write('FPS %f \r' % (sum(self.fps) / len(self.fps)))
 
     def main(self):
 
