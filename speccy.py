@@ -1,4 +1,9 @@
 #!/usr/bin/python
+import gi
+try:
+    gi.require_version('Gtk', '3.0')
+except:
+    pass
 from gi.repository import Gtk, Gdk
 from spectrum_file import SpectrumFileReader
 import signal
