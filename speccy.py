@@ -24,9 +24,10 @@ class Speccy(object):
     # we will render +/- 10 MHz
     bands = [
         (2412, 2472, 5),        # 2.4 GHz
-        (5170, 5240, 20),       # U-NII-1
+        (5180, 5240, 20),       # U-NII-1
         (5260, 5320, 20),       # U-NII-2
-        (5500, 5700, 20),       # U-NII-2e
+        (5500, 5580, 20),       # U-NII-2e-a
+        (5600, 5700, 20),       # U-NII-2e-b
         (5745, 5825, 20),       # U-NII-3
     ]
 
@@ -76,7 +77,7 @@ class Speccy(object):
         if not os.path.exists("./spectral_data"):
             os.mkdir("./spectral_data")
 
-        self.set_band(0)
+        self.set_band(self.band_idx)
         self.dump_to_file = False
         self.dump_file = None
         self.ui_update = True
