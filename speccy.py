@@ -20,12 +20,20 @@ class Speccy(object):
     heatmap = {}
     max_per_freq = {}
 
-    freq_min = 2402.0
-    freq_max = 2482.0
+    # min freq, max freq (inclusive), ch spacing
+    # we will render +/- 10 MHz
+    bands = [
+        (2412, 2472, 5),        # 2.4 GHz
+        (5170, 5240, 20),       # U-NII-1
+        (5260, 5320, 20),       # U-NII-2
+        (5500, 5700, 20),       # U-NII-2e
+        (5745, 5825, 20),       # U-NII-3
+    ]
 
+    band_idx = 0
+    scanners = []
     power_min = -110.0
     power_max = -20.0
-    last_x = freq_max
     mpf_gen = 0
     mpf_gen_tbl = {}
     hmp_gen = 0
@@ -34,12 +42,23 @@ class Speccy(object):
     show_heatmap = True
     lastframe = 0
     redraws = 0
-
     fps = [0] * 10
     fpsi = 0
 
     color_map = None
     sf = None
+    freq_min = None
+    freq_max = None
+    last_x = None
+
+    def set_band(self, band_idx):
+        band = self.bands[band_idx]
+        self.freq_min = band[0] - 10.0
+        self.freq_max = band[1] + 10.0
+        self.last_x = self.freq_max
+        self.band_idx = band_idx
+        for scanner in self.scanners:
+            scanner.set_freqs(*band)
 
     def __init__(self, ifaces):
         self.color_map = self.gen_pallete()
@@ -56,6 +75,8 @@ class Speccy(object):
         self.dev_idx = 0  # id of currently selected device
         if not os.path.exists("./spectral_data"):
             os.mkdir("./spectral_data")
+
+        self.set_band(0)
         self.dump_to_file = False
         self.dump_file = None
         self.ui_update = True
@@ -87,6 +108,10 @@ class Speccy(object):
             self.scanners[self.dev_idx].mode_chanscan()
             self.reset_viewport()
             self.scanners[self.dev_idx].file_reader.flush()
+        elif key == 'f':
+            # cycle through frequency bands
+            idx = (self.band_idx + 1) % len(self.bands)
+            self.set_band(idx)
         elif key == 'Left':
             if self.scanners[self.dev_idx].mode.value == 1:  # chanscan
                 return

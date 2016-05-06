@@ -7,7 +7,7 @@ import time
 class Scanner(object):
 
     interface = None
-    freqlist = range(2412,2467,5)
+    freqlist = None
     process = None
     debugfs_dir = None
     is_ath10k = False
@@ -40,13 +40,12 @@ class Scanner(object):
                 os.system('%s >/dev/null 2>/dev/null' % cmd)
             time.sleep(.01)
 
-    def __init__(self, interface, idx=0, freqlist=None):
+    def __init__(self, interface, idx=0):
         self.interface = interface
         self.phy = ""
         self.idx = idx
         self.monitor_name = "ssmon%d" % self.idx  # just a arbitrary, but unique id
         self.monitor_added = False
-        self.freqlist = freqlist
         self.debugfs_dir = self._find_debugfs_dir()
         if not self.debugfs_dir:
             raise Exception, \
@@ -62,6 +61,12 @@ class Scanner(object):
         self.process = None
         self.file_reader = None
         self.noninvasive = False
+        self.set_freqs(2412, 2472, 5)
+
+    def set_freqs(self, minf, maxf, spacing):
+        self.freqlist = ['%s' % x for x in range(minf, maxf + spacing, spacing)]
+        # TODO restart scanner
+        print "freqlist: %s" % self.freqlist
 
     def hw_setup_chanscan(self):
         print "enter 'chanscan' mode: set dev type to 'managed'"
