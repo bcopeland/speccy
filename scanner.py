@@ -2,6 +2,8 @@
 from multiprocessing import Process, Value
 import os
 import time
+from py80211.scan import scan_request
+import netlink.capi as nl
 
 
 class Scanner(object):
@@ -32,12 +34,14 @@ class Scanner(object):
         while True:
             if self.is_ath10k:
                 self.cmd_trigger()
-
-            if self.mode.value == 1:  # only in 'chanscan' mode
-                cmd = 'iw dev %s scan' % self.interface
-                if self.freqlist:
-                    cmd = '%s freq %s' % (cmd, ' '.join(self.freqlist))
-                os.system('%s >/dev/null 2>/dev/null' % cmd)
+            else:
+                try:
+                    ifidx = nl.if_nametoindex(self.interface)
+                    sr = scan_request(ifidx)
+                    sr.add_freqs(self.freqlist)
+                    sr.send()
+                except:
+                    pass
             time.sleep(.01)
 
     def __init__(self, interface, idx=0):
@@ -64,7 +68,7 @@ class Scanner(object):
         self.set_freqs(2412, 2472, 5)
 
     def set_freqs(self, minf, maxf, spacing):
-        self.freqlist = ['%s' % x for x in range(minf, maxf + spacing, spacing)]
+        self.freqlist = range(minf, maxf + spacing, spacing)
         # TODO restart scanner
         print "freqlist: %s" % self.freqlist
 
