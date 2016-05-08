@@ -54,6 +54,7 @@ class Scanner(object):
         self.is_ath10k = self.debugfs_dir.endswith("ath10k")
         self.ctl_file = '%s/spectral_scan_ctl' % self.debugfs_dir
         self.sample_count_file = '%s/spectral_count' % self.debugfs_dir
+        self.short_repeat_file = '%s/spectral_short_repeat' % self.debugfs_dir
         self.cur_chan = 6
         self.sample_count = 8
         self.mode = Value('i', -1)  # -1 = undef, 1 = 'chanscan', 2 = 'background scan', 3 = 'noninvasive bg scan'
@@ -62,6 +63,8 @@ class Scanner(object):
         self.file_reader = None
         self.noninvasive = False
         self.set_freqs(2412, 2472, 5)
+        self.short_repeat = 0
+        self.cmd_set_short_repeat(self.short_repeat)
 
     def set_freqs(self, minf, maxf, spacing):
         self.freqlist = ['%s' % x for x in range(minf, maxf + spacing, spacing)]
@@ -175,6 +178,12 @@ class Scanner(object):
         f = open(self.sample_count_file, 'w')
         f.write("%s" % count)
         f.close()
+
+    def cmd_set_short_repeat(self, short_repeat):
+        f = open(self.short_repeat_file, 'w')
+        f.write("%s" % short_repeat)
+        f.close()
+        self.short_repeat = short_repeat
 
     def cmd_setchannel(self):
         print "set channel to %d in mode %s" % (self.cur_chan, self.channel_mode)
