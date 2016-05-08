@@ -99,6 +99,8 @@ class Speccy(object):
             self.show_heatmap = not self.show_heatmap
         elif key == 'l':
             self.show_envelope = not self.show_envelope
+        elif key == 'r':
+            self.scanners[self.dev_idx].cmd_toggle_short_repeat()
         elif key == 'q':
             self.quit()
         elif key == 'b':

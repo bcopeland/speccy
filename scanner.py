@@ -63,8 +63,6 @@ class Scanner(object):
         self.file_reader = None
         self.noninvasive = False
         self.set_freqs(2412, 2472, 5)
-        self.short_repeat = 0
-        self.cmd_set_short_repeat(self.short_repeat)
 
     def set_freqs(self, minf, maxf, spacing):
         self.freqlist = ['%s' % x for x in range(minf, maxf + spacing, spacing)]
@@ -179,11 +177,21 @@ class Scanner(object):
         f.write("%s" % count)
         f.close()
 
-    def cmd_set_short_repeat(self, short_repeat):
+    def set_short_repeat(self, short_repeat):
         f = open(self.short_repeat_file, 'w')
         f.write("%s" % short_repeat)
         f.close()
-        self.short_repeat = short_repeat
+
+    def cmd_toggle_short_repeat(self):
+        f = open(self.short_repeat_file, 'r')
+        curval = int(f.read())
+        f.close()
+        if curval == 0:
+            curval = 1
+        else:
+            curval = 0
+        print "set short repeat to %d" % curval
+        self.set_short_repeat(curval)
 
     def cmd_setchannel(self):
         print "set channel to %d in mode %s" % (self.cur_chan, self.channel_mode)
