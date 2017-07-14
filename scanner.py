@@ -18,6 +18,14 @@ class Scanner(object):
         f.close()
         return phy
 
+    def freq_to_chan(self, freq):
+        chan = 0
+        if (freq >= 2412 and freq <= 2472):
+            chan = (freq - 2407) / 5
+        if (freq >= 5180 and freq <= 5900):
+            chan = (freq - 5000) / 5
+        return chan
+
     def _find_debugfs_dir(self):
         ''' search debugfs for spectral_scan_ctl for this interface '''
         for dirname, subd, files in os.walk('/sys/kernel/debug/ieee80211'):
@@ -67,6 +75,7 @@ class Scanner(object):
     def set_freqs(self, minf, maxf, spacing):
         self.freqlist = ['%s' % x for x in range(minf, maxf + spacing, spacing)]
         # TODO restart scanner
+        self.freq_idx = 0;
         print "freqlist: %s" % self.freqlist
 
     def hw_setup_chanscan(self):
@@ -87,7 +96,7 @@ class Scanner(object):
             os.system("ip link set %s down" % self.interface)
             os.system("iw dev %s set type monitor" % self.interface)
             os.system("ip link set %s up" % self.interface)
-            self.cmd_setchannel()
+            self.cmd_setfreq(0)
         self.cmd_background()
         self.cmd_trigger()
 
@@ -111,23 +120,23 @@ class Scanner(object):
     def retune_up(self):  # FIXME: not save for 5Ghz / ath10k
         if self.mode.value == 1:  # tuning not possible in mode 'chanscan'
             return
-        self.cur_chan += 1
-        if self.cur_chan == 14:
-            self.cur_chan = 1
-        print "tune to channel %d" % self.cur_chan
+
+        idx = (self.freq_idx + 1) % len(self.freqlist)
+
+        print "tune to freq %s" % self.freqlist[idx]
         self.fix_ht40_mode()
-        self.cmd_setchannel()
+        self.cmd_setfreq(idx)
         self.cmd_trigger()
 
     def retune_down(self):  # FIXME: not save for 5Ghz / ath10k
         if self.mode.value == 1:  # tuning not possible in mode 'chanscan'
             return
-        self.cur_chan -= 1
-        if self.cur_chan == 0:
-            self.cur_chan = 13
-        print "tune to channel %d" % self.cur_chan
+
+        idx = (self.freq_idx - 1) % len(self.freqlist)
+
+        print "tune to freq %s" % self.freqlist[idx]
         self.fix_ht40_mode()
-        self.cmd_setchannel()
+        self.cmd_setfreq(idx)
         self.cmd_trigger()
 
     def cmd_samplecount_up(self):
@@ -201,6 +210,17 @@ class Scanner(object):
             os.system("iw dev %s set channel %d %s" % (self.interface, self.cur_chan, self.channel_mode))
         else:  # this seems to be strange:
             os.system("iw dev %s set channel %d %s" % (self.monitor_name, self.cur_chan, self.channel_mode))
+
+    def cmd_setfreq(self, idx):
+        freq = self.freqlist[idx]
+        chan = self.freq_to_chan(int(freq))
+        mode = self.channel_mode
+        print "set freq to %s (%d) in mode %s" % (freq, chan, mode)
+        if not self.noninvasive:
+            os.system("iw dev %s set freq %s %s" % (self.interface, freq, mode))
+        else:  # this seems to be strange:
+            os.system("iw dev %s set freq %s %s" % (self.monitor_name, freq, mode))
+        self.freq_idx = idx
 
     def fix_ht40_mode(self):
         if self.channel_mode != "HT20":
