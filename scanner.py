@@ -154,6 +154,8 @@ class Scanner(object):
     def cmd_background(self):
         f = open(self.ctl_file, 'w')
         f.write("background")
+        if self.is_ath10k:
+            f.write("trigger")
         f.close()
 
     def cmd_manual(self):
