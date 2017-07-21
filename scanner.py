@@ -1,5 +1,6 @@
 #!/usr/bin/python
-from multiprocessing import Process, Value
+from multiprocessing import Value
+from threading import Thread, Lock
 import os
 import time
 
@@ -11,6 +12,8 @@ class Scanner(object):
     process = None
     debugfs_dir = None
     is_ath10k = False
+    lock = None
+    run = True
 
     def dev_to_phy(self, dev):
         f = open('/sys/class/net/%s/phy80211/name' % dev)
@@ -37,19 +40,22 @@ class Scanner(object):
         return None
 
     def _scan(self):
-        while True:
+        while self.run:
             if self.is_ath10k:
                 self.cmd_trigger()
 
             if self.mode.value == 1:  # only in 'chanscan' mode
                 cmd = 'iw dev %s scan' % self.interface
+                self.lock.acquire()
                 if self.freqlist:
                     cmd = '%s freq %s' % (cmd, ' '.join(self.freqlist))
+                self.lock.release()
                 os.system('%s >/dev/null 2>/dev/null' % cmd)
             time.sleep(.01)
 
     def __init__(self, interface, idx=0):
         self.interface = interface
+        self.lock = Lock()
         self.phy = ""
         self.idx = idx
         self.monitor_name = "ssmon%d" % self.idx  # just a arbitrary, but unique id
@@ -67,13 +73,15 @@ class Scanner(object):
         self.sample_count = 8
         self.mode = Value('i', -1)  # -1 = undef, 1 = 'chanscan', 2 = 'background scan', 3 = 'noninvasive bg scan'
         self.channel_mode = "HT20"
-        self.process = None
+        self.thread = None
         self.file_reader = None
         self.noninvasive = False
         self.set_freqs(2412, 2472, 5)
 
     def set_freqs(self, minf, maxf, spacing):
+        self.lock.acquire()
         self.freqlist = ['%s' % x for x in range(minf, maxf + spacing, spacing)]
+        self.lock.release()
         # TODO restart scanner
         self.freq_idx = 0;
         print "freqlist: %s" % self.freqlist
@@ -256,9 +264,10 @@ class Scanner(object):
             self.monitor_added = False
 
     def start(self):
-        if self.process is None:
-            self.process = Process(target=self._scan, args=())
-            self.process.start()
+        if self.thread is None:
+            self.thread = Thread(target=self._scan, args=())
+            self.run = True
+            self.thread.start()
 
     def stop(self):
         if self.channel_mode != "HT20":
@@ -266,10 +275,10 @@ class Scanner(object):
         self.cmd_set_samplecount(8)
         self.cmd_disable()
         self.dev_del_monitor()
-        if self.process is not None:
-            self.process.terminate()
-            self.process.join()
-            self.process = None
+        if self.thread is not None:
+            self.run = False
+            self.thread.join()
+            self.thread = None
         self.mode.value = -1
 
     def get_debugfs_dir(self):
