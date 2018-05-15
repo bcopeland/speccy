@@ -181,6 +181,27 @@ class SpectrumFileReader(object):
                     struct.unpack_from(">bHHhHHHQBbbbb", data, pos)
                 pos += 26
 
-                sdata = struct.unpack_from("64B", data, pos)
-                pos += 64
-                yield (tsf, freq1, noise, rssi, sdata)
+                bins = slen - 26
+                sdata = struct.unpack_from(str(bins) + "B", data, pos)
+                pos += bins
+
+                # calculate power in dBm
+                sumsq_sample = 0
+                samples = []
+                for raw_sample in sdata:
+                    if raw_sample == 0:
+                        sample = 1
+                    else:
+                        sample = raw_sample << max_exp
+                    samples.append(sample)
+                    sample = sample * sample
+                    sumsq_sample += sample
+                sumsq_sample = 10 * math.log10(sumsq_sample)
+
+                pwr = {}
+                for i, sample in enumerate(samples):
+                    subcarrier_freq = freq1 - chanwidth/2 + (chanwidth * (i + 0.5) / bins)
+                    sigval = noise + rssi + 20 * math.log10(sample) - sumsq_sample
+                    pwr[subcarrier_freq] = sigval
+
+                yield (tsf, freq1, noise, rssi, pwr)
