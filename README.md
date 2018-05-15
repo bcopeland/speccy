@@ -25,6 +25,7 @@ where ```wlanN``` are the devices you'd like to use. Up to four devices are supp
 ## Key bindings
 
  * 'l' - Toggle line graph
+ * 'f' - Cycle through frequency bands
  * 's' - Toggle scatter plot
  * '1', '2', '3', '4' - Switch control to device number n. Default is 1
  * 'c' - Switch scanner to 'chanscan' mode [default]. Hardware tunes to all WiFi channels and deliver a certain number of samples per channel. Default is 8
@@ -40,7 +41,3 @@ where ```wlanN``` are the devices you'd like to use. Up to four devices are supp
  * 'u' - Toggle UI processing
  * 'q' - Quit the program
 
-## Open issues
-
- * HT40 decoder seems to produce crap
- * This software is not tested on 5GHz / ath10k due lack of appropriate hardware
