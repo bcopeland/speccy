@@ -18,7 +18,7 @@ in something resembling real-time.
 
 On Ubuntu, run:
 ```
-$ sudo python speccy.py wlan0 wlan1 ...
+$ sudo python3 speccy.py wlan0 wlan1 ...
 ```
 where ```wlanN``` are the devices you'd like to use. Up to four devices are supported.
 
