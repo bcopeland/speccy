@@ -1,7 +1,8 @@
 #!/usr/bin/python
 import gi
+
 try:
-    gi.require_version('Gtk', '3.0')
+    gi.require_version("Gtk", "3.0")
 except:
     pass
 from gi.repository import Gtk, Gdk
@@ -13,7 +14,7 @@ import math
 from scanner import Scanner
 from datetime import datetime
 import os
-import cPickle
+import pickle
 
 
 class Speccy(object):
@@ -23,12 +24,12 @@ class Speccy(object):
     # min freq, max freq (inclusive), ch spacing
     # we will render +/- 10 MHz
     bands = [
-        (2412, 2472, 5),        # 2.4 GHz
-        (5180, 5240, 20),       # U-NII-1
-        (5260, 5320, 20),       # U-NII-2
-        (5500, 5580, 20),       # U-NII-2e-a
-        (5600, 5700, 20),       # U-NII-2e-b
-        (5745, 5825, 20),       # U-NII-3
+        (2412, 2472, 5),  # 2.4 GHz
+        (5180, 5240, 20),  # U-NII-1
+        (5260, 5320, 20),  # U-NII-2
+        (5500, 5580, 20),  # U-NII-2e-a
+        (5600, 5700, 20),  # U-NII-2e-b
+        (5745, 5825, 20),  # U-NII-3
     ]
 
     band_idx = 0
@@ -68,7 +69,7 @@ class Speccy(object):
         for iface in ifaces:
             scanner = Scanner(iface, idx=idx)
             scanner.mode_chanscan()
-            fn = '%s/spectral_scan0' % scanner.get_debugfs_dir()
+            fn = "%s/spectral_scan0" % scanner.get_debugfs_dir()
             reader = SpectrumFileReader(fn)
             scanner.file_reader = reader
             self.scanners.append(scanner)
@@ -95,73 +96,75 @@ class Speccy(object):
 
     def on_key_press(self, w, event):
         key = Gdk.keyval_name(event.keyval)
-        if key == 's':
+        if key == "s":
             self.show_heatmap = not self.show_heatmap
-        elif key == 'l':
+        elif key == "l":
             self.show_envelope = not self.show_envelope
-        elif key == 'r':
+        elif key == "r":
             self.scanners[self.dev_idx].cmd_toggle_short_repeat()
-        elif key == 'q':
+        elif key == "q":
             self.quit()
-        elif key == 'b':
+        elif key == "b":
             self.scanners[self.dev_idx].mode_background()
             self.reset_viewport()
             self.scanners[self.dev_idx].file_reader.flush()
-        elif key == 'c':
+        elif key == "c":
             self.scanners[self.dev_idx].mode_chanscan()
             self.reset_viewport()
             self.scanners[self.dev_idx].file_reader.flush()
-        elif key == 'f':
+        elif key == "f":
             # cycle through frequency bands
             idx = (self.band_idx + 1) % len(self.bands)
             self.set_band(idx)
-        elif key == 'Left':
+        elif key == "Left":
             if self.scanners[self.dev_idx].mode.value == 1:  # chanscan
                 return
             self.reset_viewport()
             self.scanners[self.dev_idx].retune_down()
             self.scanners[self.dev_idx].file_reader.flush()
-        elif key == 'Right':
+        elif key == "Right":
             if self.scanners[self.dev_idx].mode.value == 1:  # chanscan
                 return
             self.reset_viewport()
             self.scanners[self.dev_idx].retune_up()
             self.scanners[self.dev_idx].file_reader.flush()
-        elif key == 'Up':
+        elif key == "Up":
             if self.scanners[self.dev_idx].mode.value == 2:  # background
                 self.bg_sample_count_limit += 50
                 self.bg_sample_count = 0
                 self.reset_viewport()
-                print "set bg persistence cnt to %d" % self.bg_sample_count_limit
+                print("set bg persistence cnt to %d" % self.bg_sample_count_limit)
             else:
                 self.scanners[self.dev_idx].cmd_samplecount_up()
-        elif key == 'Down':
-            if self.scanners[self.dev_idx].mode.value == 2: # background
+        elif key == "Down":
+            if self.scanners[self.dev_idx].mode.value == 2:  # background
                 self.bg_sample_count_limit -= 50
                 if self.bg_sample_count_limit < 0:
                     self.bg_sample_count_limit = 0
                 self.bg_sample_count = 0
                 self.reset_viewport()
-                print "set bg persistence cnt to %d" % self.bg_sample_count_limit
+                print("set bg persistence cnt to %d" % self.bg_sample_count_limit)
             else:
                 self.scanners[self.dev_idx].cmd_samplecount_down()
-        elif key == 'd':
+        elif key == "d":
             if self.dump_to_file:
                 self.dump_to_file = False
                 self.dump_file.close()
-                print "dump to file finished"
+                print("dump to file finished")
             else:
-                fn = "./spectral_data/%s.bin" % datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-                print "start dumping to %s" % fn
-                self.dump_file = open(fn, 'w')
+                fn = "./spectral_data/%s.bin" % datetime.now().strftime(
+                    "%Y-%m-%d_%H-%M-%S"
+                )
+                print("start dumping to %s" % fn)
+                self.dump_file = open(fn, "w")
                 self.dump_to_file = True
-        elif key == 'u':
+        elif key == "u":
             self.ui_update = not self.ui_update
-        elif key == 'm':
+        elif key == "m":
             self.reset_viewport()
             self.scanners[self.dev_idx].cmd_toggle_HTMode()
             self.scanners[self.dev_idx].file_reader.flush()
-        elif key == '1' or key == '2' or key == '3' or key == '4':
+        elif key == "1" or key == "2" or key == "3" or key == "4":
             self.dev_idx = int(key) - 1
 
         else:
@@ -178,15 +181,19 @@ class Speccy(object):
             if i < 128:
                 sf = (128.0 - i) / 128.0
                 sf2 = i / 128.0
-                colors[i] = (start_col[0] * sf + mid_col[0] * sf2,
-                            start_col[1] * sf + mid_col[1] * sf2,
-                            start_col[2] * sf + mid_col[2] * sf2)
+                colors[i] = (
+                    start_col[0] * sf + mid_col[0] * sf2,
+                    start_col[1] * sf + mid_col[1] * sf2,
+                    start_col[2] * sf + mid_col[2] * sf2,
+                )
             else:
                 sf = (256.0 - i) / 128.0
                 sf2 = (i - 128.0) / 128.0
-                colors[i] = (mid_col[0] * sf + end_col[0] * sf2,
-                            mid_col[1] * sf + end_col[1] * sf2,
-                            mid_col[2] * sf + end_col[2] * sf2)
+                colors[i] = (
+                    mid_col[0] * sf + end_col[0] * sf2,
+                    mid_col[1] * sf + end_col[1] * sf2,
+                    mid_col[2] * sf + end_col[2] * sf2,
+                )
         return colors
 
     def sample_to_viewport(self, freq, power, wx, wy):
@@ -246,9 +253,9 @@ class Speccy(object):
 
     def smooth_data(self, vals, window_len):
         smoothed = [self.power_min] * len(vals)
-        half_window = window_len / 2
+        half_window = window_len // 2
         for i in range(half_window, len(vals) - half_window):
-            window = vals[i - half_window:i+half_window]
+            window = vals[i - half_window : i + half_window]
             smoothed[i] = sum(window) / float(len(window))
         return smoothed
 
@@ -269,7 +276,7 @@ class Speccy(object):
 
             ts, xydata = scanner.file_reader.sample_queue.get()
             if self.dump_to_file:
-                cPickle.dump((scanner.idx, ts, xydata), self.dump_file)
+                pickle.dump((scanner.idx, ts, xydata), self.dump_file)
 
             if not self.ui_update:
                 continue
@@ -287,18 +294,24 @@ class Speccy(object):
                         self.mpf_gen += 1
                     self.bg_sample_count += 1
 
-                for freq_sc, sigval in pwr.iteritems():
-                    if freq_sc not in hmp or self.hmp_gen_tbl.get(freq_sc, 0) < self.hmp_gen:
+                for freq_sc, sigval in pwr.items():
+                    if (
+                        freq_sc not in hmp
+                        or self.hmp_gen_tbl.get(freq_sc, 0) < self.hmp_gen
+                    ):
                         hmp[freq_sc] = {}
                         self.hmp_gen_tbl[freq_sc] = self.hmp_gen
 
                     arr = hmp[freq_sc]
-                    mody = ceil(sigval*2.0)/2.0
+                    mody = ceil(sigval * 2.0) / 2.0
                     arr.setdefault(mody, 0)
                     arr[mody] += 1.0
 
                     mpf.setdefault(freq_sc, 0)
-                    if sigval > mpf[freq_sc] or self.mpf_gen_tbl.get(freq_sc, 0) < self.mpf_gen:
+                    if (
+                        sigval > mpf[freq_sc]
+                        or self.mpf_gen_tbl.get(freq_sc, 0) < self.mpf_gen
+                    ):
                         mpf[freq_sc] = sigval
                         self.mpf_gen_tbl[freq_sc] = self.mpf_gen
 
@@ -322,7 +335,7 @@ class Speccy(object):
 
         zmax = 0
         for center_freq in self.heatmap.keys():
-            for power, value in self.heatmap[center_freq].iteritems():
+            for power, value in self.heatmap[center_freq].items():
                 if zmax < value:
                     zmax = self.heatmap[center_freq][power]
 
@@ -334,7 +347,7 @@ class Speccy(object):
             pal_size = len(self.color_map)
             samples = {}
             for center_freq in self.heatmap.keys():
-                for power, value in self.heatmap[center_freq].iteritems():
+                for power, value in self.heatmap[center_freq].items():
                     # scale x to viewport
                     posx, posy = self.sample_to_viewport(center_freq, power, wx, wy)
 
@@ -342,16 +355,21 @@ class Speccy(object):
                     if posx < 0 or posx > wx or posy < 0 or posy > wy:
                         continue
 
-                    intensity = int(pal_size * value  / zmax) & 0xff
+                    intensity = int(pal_size * value / zmax) & 0xFF
                     l = samples.setdefault(intensity, [])
                     l += [(posx, posy)]
 
             # render all rectangles batched by color
-            for intensity, pts in samples.iteritems():
+            for intensity, pts in samples.items():
                 color = self.color_map[intensity]
-                cr.set_source_rgba(color[0], color[1], color[2], .8)
+                cr.set_source_rgba(color[0], color[1], color[2], 0.8)
                 for xy in pts:
-                    cr.rectangle(xy[0]-rect_size[0]/2, xy[1]-rect_size[1]/2, rect_size[0], rect_size[1])
+                    cr.rectangle(
+                        xy[0] - rect_size[0] / 2,
+                        xy[1] - rect_size[1] / 2,
+                        rect_size[0],
+                        rect_size[1],
+                    )
                 cr.fill()
 
         if self.show_envelope and len(self.max_per_freq.keys()) > 0:
@@ -369,9 +387,9 @@ class Speccy(object):
 
         end = datetime.now()
         elapsed = (end - start).total_seconds()
-        self.fps[self.fpsi] = 1/elapsed
+        self.fps[self.fpsi] = 1 / elapsed
         self.fpsi = (self.fpsi + 1) % len(self.fps)
-        sys.stderr.write('FPS %f \r' % (sum(self.fps) / len(self.fps)))
+        sys.stderr.write("FPS %f \r" % (sum(self.fps) / len(self.fps)))
 
     def main(self):
 
@@ -384,9 +402,9 @@ class Speccy(object):
 
         a.add_tick_callback(self.update_data, None)
 
-        w.connect('destroy', Gtk.main_quit)
+        w.connect("destroy", Gtk.main_quit)
         w.connect("key_press_event", self.on_key_press)
-        a.connect('draw', self.draw)
+        a.connect("draw", self.draw)
 
         w.show_all()
 
@@ -397,8 +415,9 @@ class Speccy(object):
 
         self.cleanup()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     if len(sys.argv) == 1:
-        print "\nUsage: \n  $ sudo python speccy.py wlanX [wlanY] [wlanZ] [wlanA]\n"
+        print("\nUsage: \n  $ sudo python speccy.py wlanX [wlanY] [wlanZ] [wlanA]\n")
         exit(0)
     Speccy(sys.argv[1:]).main()
