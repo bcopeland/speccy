@@ -16,23 +16,23 @@ class Scanner(object):
     run = True
 
     def dev_to_phy(self, dev):
-        f = open('/sys/class/net/%s/phy80211/name' % dev)
+        f = open("/sys/class/net/%s/phy80211/name" % dev)
         phy = f.read().strip()
         f.close()
         return phy
 
     def freq_to_chan(self, freq):
         chan = 0
-        if (freq >= 2412 and freq <= 2472):
+        if freq >= 2412 and freq <= 2472:
             chan = (freq - 2407) / 5
-        if (freq >= 5180 and freq <= 5900):
+        if freq >= 5180 and freq <= 5900:
             chan = (freq - 5000) / 5
         return chan
 
     def _find_debugfs_dir(self):
-        ''' search debugfs for spectral_scan_ctl for this interface '''
-        for dirname, subd, files in os.walk('/sys/kernel/debug/ieee80211'):
-            if 'spectral_scan_ctl' in files:
+        """search debugfs for spectral_scan_ctl for this interface"""
+        for dirname, subd, files in os.walk("/sys/kernel/debug/ieee80211"):
+            if "spectral_scan_ctl" in files:
                 phy = dirname.split(os.path.sep)[-2]
                 if phy == self.dev_to_phy(self.interface):
                     self.phy = phy
@@ -45,13 +45,13 @@ class Scanner(object):
                 self.cmd_trigger()
 
             if self.mode.value == 1:  # only in 'chanscan' mode
-                cmd = 'iw dev %s scan' % self.interface
+                cmd = "iw dev %s scan" % self.interface
                 self.lock.acquire()
                 if self.freqlist:
-                    cmd = '%s freq %s' % (cmd, ' '.join(self.freqlist))
+                    cmd = "%s freq %s" % (cmd, " ".join(self.freqlist))
                 self.lock.release()
-                os.system('%s >/dev/null 2>/dev/null' % cmd)
-            time.sleep(.01)
+                os.system("%s >/dev/null 2>/dev/null" % cmd)
+            time.sleep(0.01)
 
     def __init__(self, interface, idx=0):
         self.interface = interface
@@ -62,16 +62,19 @@ class Scanner(object):
         self.monitor_added = False
         self.debugfs_dir = self._find_debugfs_dir()
         if not self.debugfs_dir:
-            raise Exception, \
-                  'Unable to access spectral_scan_ctl file for interface %s' % interface
+            raise Exception(
+                "Unable to access spectral_scan_ctl file for interface %s" % interface
+            )
 
         self.is_ath10k = self.debugfs_dir.endswith("ath10k")
-        self.ctl_file = '%s/spectral_scan_ctl' % self.debugfs_dir
-        self.sample_count_file = '%s/spectral_count' % self.debugfs_dir
-        self.short_repeat_file = '%s/spectral_short_repeat' % self.debugfs_dir
+        self.ctl_file = "%s/spectral_scan_ctl" % self.debugfs_dir
+        self.sample_count_file = "%s/spectral_count" % self.debugfs_dir
+        self.short_repeat_file = "%s/spectral_short_repeat" % self.debugfs_dir
         self.cur_chan = 6
         self.sample_count = 8
-        self.mode = Value('i', -1)  # -1 = undef, 1 = 'chanscan', 2 = 'background scan', 3 = 'noninvasive bg scan'
+        self.mode = Value(
+            "i", -1
+        )  # -1 = undef, 1 = 'chanscan', 2 = 'background scan', 3 = 'noninvasive bg scan'
         self.channel_mode = "HT20"
         self.thread = None
         self.file_reader = None
@@ -80,14 +83,14 @@ class Scanner(object):
 
     def set_freqs(self, minf, maxf, spacing):
         self.lock.acquire()
-        self.freqlist = ['%s' % x for x in range(minf, maxf + spacing, spacing)]
+        self.freqlist = ["%s" % x for x in range(minf, maxf + spacing, spacing)]
         self.lock.release()
         # TODO restart scanner
-        self.freq_idx = 0;
-        print "freqlist: %s" % self.freqlist
+        self.freq_idx = 0
+        print("freqlist: %s" % self.freqlist)
 
     def hw_setup_chanscan(self):
-        print "enter 'chanscan' mode: set dev type to 'managed'"
+        print("enter 'chanscan' mode: set dev type to 'managed'")
         os.system("ip link set %s down" % self.interface)
         os.system("iw dev %s set type managed" % self.interface)
         os.system("ip link set %s up" % self.interface)
@@ -100,7 +103,7 @@ class Scanner(object):
         if self.noninvasive:
             self.dev_add_monitor()
         else:
-            print "enter 'background' mode: set dev type to 'monitor'"
+            print("enter 'background' mode: set dev type to 'monitor'")
             os.system("ip link set %s down" % self.interface)
             os.system("iw dev %s set type monitor" % self.interface)
             os.system("ip link set %s up" % self.interface)
@@ -131,7 +134,7 @@ class Scanner(object):
 
         idx = (self.freq_idx + 1) % len(self.freqlist)
 
-        print "tune to freq %s" % self.freqlist[idx]
+        print("tune to freq %s" % self.freqlist[idx])
         self.fix_ht40_mode()
         self.cmd_setfreq(idx)
         self.cmd_trigger()
@@ -142,14 +145,16 @@ class Scanner(object):
 
         idx = (self.freq_idx - 1) % len(self.freqlist)
 
-        print "tune to freq %s" % self.freqlist[idx]
+        print("tune to freq %s" % self.freqlist[idx])
         self.fix_ht40_mode()
         self.cmd_setfreq(idx)
         self.cmd_trigger()
 
     def cmd_samplecount_up(self):
         self.sample_count *= 2
-        if self.sample_count == 256:  # special case, 256 is not valid, set to last valid value
+        if (
+            self.sample_count == 256
+        ):  # special case, 256 is not valid, set to last valid value
             self.sample_count = 255
         if self.sample_count > 255:
             self.sample_count = 1
@@ -158,72 +163,78 @@ class Scanner(object):
     def cmd_samplecount_down(self):
         if self.sample_count == 255:
             self.sample_count = 256  # undo special case, see above
-        self.sample_count /= 2
+        self.sample_count //= 2
         if self.sample_count < 1:
             self.sample_count = 255
         self.cmd_set_samplecount(self.sample_count)
 
     def cmd_trigger(self):
-        f = open(self.ctl_file, 'w')
+        f = open(self.ctl_file, "w")
         f.write("trigger")
         f.close()
 
     def cmd_background(self):
-        f = open(self.ctl_file, 'w')
+        f = open(self.ctl_file, "w")
         f.write("background")
         if self.is_ath10k:
             f.write("trigger")
         f.close()
 
     def cmd_manual(self):
-        f = open(self.ctl_file, 'w')
+        f = open(self.ctl_file, "w")
         f.write("manual")
         f.close()
 
     def cmd_chanscan(self):
-        f = open(self.ctl_file, 'w')
+        f = open(self.ctl_file, "w")
         f.write("chanscan")
         f.close()
 
     def cmd_disable(self):
-        f = open(self.ctl_file, 'w')
+        f = open(self.ctl_file, "w")
         f.write("disable")
         f.close()
 
     def cmd_set_samplecount(self, count):
-        print "set sample count to %d" % count
-        f = open(self.sample_count_file, 'w')
+        print("set sample count to %d" % count)
+        f = open(self.sample_count_file, "w")
         f.write("%s" % count)
         f.close()
 
     def set_short_repeat(self, short_repeat):
-        f = open(self.short_repeat_file, 'w')
+        f = open(self.short_repeat_file, "w")
         f.write("%s" % short_repeat)
         f.close()
 
     def cmd_toggle_short_repeat(self):
-        f = open(self.short_repeat_file, 'r')
+        f = open(self.short_repeat_file, "r")
         curval = int(f.read())
         f.close()
         if curval == 0:
             curval = 1
         else:
             curval = 0
-        print "set short repeat to %d" % curval
+        print("set short repeat to %d" % curval)
         self.set_short_repeat(curval)
 
     def cmd_setchannel(self):
-        print "set channel to %d in mode %s" % (self.cur_chan, self.channel_mode)
+        print("set channel to %d in mode %s" % (self.cur_chan, self.channel_mode))
         if not self.noninvasive:
-            os.system("iw dev %s set channel %d %s" % (self.interface, self.cur_chan, self.channel_mode))
+            os.system(
+                "iw dev %s set channel %d %s"
+                % (self.interface, self.cur_chan, self.channel_mode)
+            )
         else:  # this seems to be strange:
-            os.system("iw dev %s set channel %d %s" % (self.monitor_name, self.cur_chan, self.channel_mode))
+            os.system(
+                "iw dev %s set channel %d %s"
+                % (self.monitor_name, self.cur_chan, self.channel_mode)
+            )
 
     def cmd_setfreq(self, idx):
         freq = self.freqlist[idx]
         chan = self.freq_to_chan(int(freq))
         mode = self.channel_mode
-        print "set freq to %s (%d) in mode %s" % (freq, chan, mode)
+        print("set freq to %s (%d) in mode %s" % (freq, chan, mode))
         if not self.noninvasive:
             os.system("iw dev %s set freq %s %s" % (self.interface, freq, mode))
         else:  # this seems to be strange:
@@ -240,8 +251,8 @@ class Scanner(object):
 
     def cmd_toggle_HTMode(self):
         if self.channel_mode == "HT40+" or self.channel_mode == "HT40-":
-             self.channel_mode = "HT20"
-        else: # see https://wireless.wiki.kernel.org/en/developers/regulatory/processing_rules#mhz_channels1
+            self.channel_mode = "HT20"
+        else:  # see https://wireless.wiki.kernel.org/en/developers/regulatory/processing_rules#mhz_channels1
             if self.cur_chan < 8:
                 self.channel_mode = "HT40+"
             else:
@@ -252,8 +263,10 @@ class Scanner(object):
     def dev_add_monitor(self):
         if self.monitor_added:
             return
-        print "add a monitor interface"
-        os.system("iw phy %s interface add %s type monitor" % (self.phy, self.monitor_name))
+        print("add a monitor interface")
+        os.system(
+            "iw phy %s interface add %s type monitor" % (self.phy, self.monitor_name)
+        )
         os.system("ip link set %s up" % self.monitor_name)
         self.monitor_added = True
 
